@@ -120,7 +120,7 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Draw field with stationary sideline markers and moving yard lines
+  // Draw field with scrolling yard lines and moving sideline numbers
   const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -139,60 +139,56 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Moving yard lines (doubled spacing: 120 pixels = 10 yards)
+    // Yard lines with doubled spacing and moving sideline numbers
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
     
-    const pixelsPerYardLine = 120; // 120 pixels between each 10-yard line
+    const pixelsPerYardLine = 120; // 120 pixels = 10 yards (doubled spacing)
     
     for (let i = 0; i < 10; i++) {
       const y = (i * pixelsPerYardLine + (offset % pixelsPerYardLine)) % (canvasHeight + pixelsPerYardLine);
       
-      if (y > -10 && y < canvasHeight + 10) {
+      if (y > -50 && y < canvasHeight + 50) {
+        // Calculate the yard number for this line based on player progress
+        const lineDistanceFromPlayer = (canvasHeight - 100) - y; // Distance from player position
+        const yardAtThisLine = Math.round(currentYards + (lineDistanceFromPlayer / 12)); // 12 pixels = 1 yard
+        const roundedYard = Math.floor(yardAtThisLine / 10) * 10;
+        
         // Draw moving yard line
         ctx.beginPath();
         ctx.moveTo(20, y);
         ctx.lineTo(canvasWidth - 20, y);
         ctx.stroke();
-      }
-    }
 
-    // STATIONARY sideline yard markers - fixed stadium-style markers
-    ctx.fillStyle = 'hsl(0, 0%, 95%)';
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'center';
-    
-    // Draw fixed yard markers every 60 pixels (every 5 yards visually)
-    for (let screenY = 60; screenY < canvasHeight; screenY += 60) {
-      // Calculate what yard this screen position represents
-      const playerY = canvasHeight - 100; // Player's fixed screen position
-      const distanceFromPlayer = screenY - playerY;
-      const yardAtThisPosition = Math.max(0, Math.round(currentYards - (distanceFromPlayer / 12))); // 12 pixels = 1 yard
-      
-      // Only show markers for multiples of 10 yards
-      if (yardAtThisPosition % 10 === 0 && yardAtThisPosition >= 0) {
-        // Left side yard marker
-        ctx.save();
-        ctx.translate(35, screenY);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText(yardAtThisPosition.toString(), 0, 0);
-        ctx.restore();
-        
-        // Right side yard marker  
-        ctx.save();
-        ctx.translate(canvasWidth - 35, screenY);
-        ctx.rotate(Math.PI / 2);
-        ctx.fillText(yardAtThisPosition.toString(), 0, 0);
-        ctx.restore();
-        
-        // Center field marker for major yard lines (50, 100, etc.)
-        if (yardAtThisPosition % 50 === 0 && yardAtThisPosition > 0) {
-          ctx.fillStyle = 'hsl(0, 0%, 85%)';
-          ctx.font = 'bold 20px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText(yardAtThisPosition.toString(), canvasWidth / 2, screenY - 5);
+        // Draw moving sideline numbers every 10 yards
+        if (roundedYard % 10 === 0 && roundedYard >= 0) {
           ctx.fillStyle = 'hsl(0, 0%, 95%)';
           ctx.font = 'bold 16px Arial';
+          ctx.textAlign = 'center';
+          
+          // Left side yard marker (moves with field)
+          ctx.save();
+          ctx.translate(35, y);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(roundedYard.toString(), 0, 0);
+          ctx.restore();
+          
+          // Right side yard marker (moves with field)
+          ctx.save();
+          ctx.translate(canvasWidth - 35, y);
+          ctx.rotate(Math.PI / 2);
+          ctx.fillText(roundedYard.toString(), 0, 0);
+          ctx.restore();
+          
+          // Center field marker for major yard lines
+          if (roundedYard % 50 === 0 && roundedYard > 0) {
+            ctx.fillStyle = 'hsl(0, 0%, 85%)';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(roundedYard.toString(), canvasWidth / 2, y - 5);
+            ctx.fillStyle = 'hsl(0, 0%, 95%)';
+            ctx.font = 'bold 16px Arial';
+          }
         }
       }
     }
