@@ -166,7 +166,7 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Continuous scrolling field with synchronized yard markers
+  // Independent continuous field scrolling with synchronized yard markers
   const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -185,7 +185,8 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Continuous scrolling yard lines and markers
+    // Continuous independent scrolling yard lines
+    // Field scrolling is NOT affected by player movement - always moves downward
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
     
@@ -474,14 +475,14 @@ const GameCanvas: React.FC = () => {
       const speedDiff = newState.targetGameSpeed - newState.gameSpeed;
       newState.gameSpeed += speedDiff * 0.1; // Gradual speed change
       
-      // Continuous field scrolling system
+      // INDEPENDENT continuous field scrolling - never stops regardless of player movement
       newState.fieldOffset += newState.gameSpeed * (deltaTime / 16.67);
       
-      // Player yards based on stable screen position + field scroll distance
-      // Player maintains relatively stable position while field moves continuously
-      const playerScreenOffset = (canvasHeight - 100) - newState.player.y; // Distance from default position
-      const totalFieldDistance = newState.fieldOffset + playerScreenOffset;
-      newState.score = Math.floor(totalFieldDistance / 12); // 12 pixels = 1 yard
+      // Yard calculation based on field scrolling + player's screen position
+      // Field scrolling is completely independent of player movement
+      const playerVerticalOffset = (canvasHeight - 100) - newState.player.y; // Player's deviation from center
+      const totalProgress = newState.fieldOffset + playerVerticalOffset;
+      newState.score = Math.floor(totalProgress / 12); // 12 pixels = 1 yard
       
       // Hide achievement after 3 seconds
       if (newState.showAchievement && Date.now() - (newState.currentAchievement?.timestamp || 0) > 3000) {
@@ -489,15 +490,19 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // Smooth player movement interpolation (maintains stable screen position)
+      // Player movement with defined boundaries - field scrolling remains independent
       const playerLerpSpeed = 0.25;
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
       newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
       
-      // Keep player near stable position for continuous scrolling illusion
-      const stableY = canvasHeight - 100;
-      const maxDeviation = 50; // Allow 50 pixels of movement from stable position
-      newState.player.y = Math.max(stableY - maxDeviation, Math.min(stableY + maxDeviation, newState.player.y));
+      // Strict player movement boundaries (field continues scrolling regardless)
+      const centerY = canvasHeight - 100; // Default center position
+      const verticalRange = 80; // 80 pixels up/down from center
+      const horizontalRange = canvasWidth - 70; // Stay within sidelines
+      
+      // Enforce boundaries - player cannot move beyond these limits
+      newState.player.x = Math.max(35, Math.min(horizontalRange, newState.player.x));
+      newState.player.y = Math.max(centerY - verticalRange, Math.min(centerY + verticalRange, newState.player.y));
       
       // Performance-optimized stamina system
       const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
@@ -603,7 +608,8 @@ const GameCanvas: React.FC = () => {
           }
         }
         
-        // Smooth movement with delta time for fluid motion
+        // Independent field movement - defenders move with field regardless of player
+        // Field scrolling is completely separate from player movement
         defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1) * (deltaTime / 16.67);
         
         return defender;
@@ -666,10 +672,10 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Smooth collectible movement
+      // Independent collectible movement - moves with field scrolling only
       newState.collectibles = newState.collectibles.map(item => ({
         ...item,
-        y: item.y + newState.gameSpeed * (deltaTime / 16.67)
+        y: item.y + newState.gameSpeed * (deltaTime / 16.67) // Field-based movement only
       })).filter(item => item.y < canvasHeight + 50);
       
       // Spawn collectibles
@@ -815,8 +821,8 @@ const GameCanvas: React.FC = () => {
     const pos = getInputPosition(e);
     if (!pos) return;
     
-    touchStartRef.current = pos;
     updatePlayerPosition(pos.x, pos.y);
+        // Update player target positions (field scrolling remains independent)
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
