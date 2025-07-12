@@ -488,19 +488,20 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // ENDLESS RUNNER PLAYER MOVEMENT: Horizontal only with smooth interpolation
+      // ENDLESS RUNNER PLAYER MOVEMENT: Both horizontal and vertical with smooth interpolation
       const playerLerpSpeed = 0.25;
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
+      newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
       
-      // Keep player at fixed vertical position (endless runner style)
-      const fixedPlayerY = canvasHeight - 100; // Fixed vertical position
-      newState.player.y = fixedPlayerY;
-      newState.player.targetY = fixedPlayerY;
-      
-      // Horizontal boundaries only - player stays within sidelines
+      // Movement boundaries - player can move freely within the field
       const horizontalRange = canvasWidth - 70;
+      const verticalRange = canvasHeight - 50;
+      
+      // Enforce boundaries for both horizontal and vertical movement
       newState.player.x = Math.max(35, Math.min(horizontalRange, newState.player.x));
+      newState.player.y = Math.max(25, Math.min(verticalRange, newState.player.y));
       newState.player.targetX = Math.max(35, Math.min(horizontalRange, newState.player.targetX));
+      newState.player.targetY = Math.max(25, Math.min(verticalRange, newState.player.targetY));
       
       // Performance-optimized stamina system
       const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
@@ -793,15 +794,14 @@ const GameCanvas: React.FC = () => {
     return { x, y };
   };
 
-  // ENDLESS RUNNER: Player only controls horizontal movement
+  // Player controls both horizontal and vertical movement
   const updatePlayerPosition = (x: number, y: number) => {
     setGameState(prevState => ({
       ...prevState,
       player: {
         ...prevState.player,
         targetX: Math.max(35, Math.min(canvasWidth - 35, x)),
-        // Vertical position is fixed in endless runner mode
-        targetY: canvasHeight - 100 // Fixed at ground level
+        targetY: Math.max(25, Math.min(canvasHeight - 25, y)) // Allow full vertical movement
       }
     }));
   };
