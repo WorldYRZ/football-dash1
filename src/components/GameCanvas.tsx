@@ -166,7 +166,7 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Draw field with perfectly synchronized yard lines and sideline numbers
+  // Continuous scrolling field with synchronized yard markers
   const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -185,20 +185,20 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Yard lines and numbers with perfect synchronization
+    // Continuous scrolling yard lines and markers
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
     
-    const pixelsPerYard = 12; // 12 pixels = 1 yard (consistent throughout game)
-    const yardsPerLine = 10; // Every 10 yards gets a line
+    const pixelsPerYard = 12; // 12 pixels = 1 yard (consistent throughout)
+    const yardsPerLine = 10; // Yard line every 10 yards
     const pixelsPerYardLine = pixelsPerYard * yardsPerLine; // 120 pixels per yard line
     
-    // Player's fixed position on screen
+    // Player's stable position on screen
     const playerScreenY = canvasHeight - 100;
     
-    // Calculate yard lines based on current progress
-    const startYard = Math.floor((currentYards - 50) / yardsPerLine) * yardsPerLine; // Start from 50 yards before current
-    const endYard = startYard + 100; // Show 100 yards worth of lines
+    // Calculate yard lines to display based on current progress
+    const startYard = Math.floor((currentYards - 10) / yardsPerLine) * yardsPerLine;
+    const endYard = startYard + 20 * yardsPerLine; // Show 20 yard lines worth
     
     for (let yard = startYard; yard <= endYard; yard += yardsPerLine) {
       if (yard < 0) continue; // Don't show negative yards
@@ -207,28 +207,28 @@ const GameCanvas: React.FC = () => {
       const yardDifference = yard - currentYards;
       const screenY = playerScreenY - (yardDifference * pixelsPerYard);
       
-      // Only draw if visible on screen
-      if (screenY >= -50 && screenY <= canvasHeight + 50) {
-        // Draw yard line
+      // Only draw if visible on screen (with buffer for smooth transitions)
+      if (screenY >= -60 && screenY <= canvasHeight + 60) {
+        // Draw moving yard line
         ctx.beginPath();
         ctx.moveTo(20, screenY);
         ctx.lineTo(canvasWidth - 20, screenY);
         ctx.stroke();
         
-        // Draw sideline numbers (perfectly aligned with field position)
+        // Draw synchronized yard markers
         if (yard >= 0) {
           ctx.fillStyle = 'hsl(0, 0%, 95%)';
           ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
           
-          // Left side yard marker
+          // Left side yard marker (moves with field)
           ctx.save();
           ctx.translate(35, screenY);
           ctx.rotate(-Math.PI / 2);
           ctx.fillText(yard.toString(), 0, 0);
           ctx.restore();
           
-          // Right side yard marker
+          // Right side yard marker (moves with field)
           ctx.save();
           ctx.translate(canvasWidth - 35, screenY);
           ctx.rotate(Math.PI / 2);
@@ -474,12 +474,14 @@ const GameCanvas: React.FC = () => {
       const speedDiff = newState.targetGameSpeed - newState.gameSpeed;
       newState.gameSpeed += speedDiff * 0.1; // Gradual speed change
       
-      // Player position-based yard calculation (more realistic)
+      // Continuous field scrolling system
       newState.fieldOffset += newState.gameSpeed * (deltaTime / 16.67);
       
-      // Calculate yards based on player's actual field position
-      const playerFieldPosition = (canvasHeight - newState.player.y) + newState.fieldOffset;
-      newState.score = Math.floor(playerFieldPosition / 12);
+      // Player yards based on stable screen position + field scroll distance
+      // Player maintains relatively stable position while field moves continuously
+      const playerScreenOffset = (canvasHeight - 100) - newState.player.y; // Distance from default position
+      const totalFieldDistance = newState.fieldOffset + playerScreenOffset;
+      newState.score = Math.floor(totalFieldDistance / 12); // 12 pixels = 1 yard
       
       // Hide achievement after 3 seconds
       if (newState.showAchievement && Date.now() - (newState.currentAchievement?.timestamp || 0) > 3000) {
@@ -487,10 +489,15 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // Smooth player movement interpolation
+      // Smooth player movement interpolation (maintains stable screen position)
       const playerLerpSpeed = 0.25;
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
       newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
+      
+      // Keep player near stable position for continuous scrolling illusion
+      const stableY = canvasHeight - 100;
+      const maxDeviation = 50; // Allow 50 pixels of movement from stable position
+      newState.player.y = Math.max(stableY - maxDeviation, Math.min(stableY + maxDeviation, newState.player.y));
       
       // Performance-optimized stamina system
       const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
