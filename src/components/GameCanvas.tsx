@@ -348,23 +348,23 @@ const GameCanvas: React.FC = () => {
         newState.lastMilestone = newState.score;
       }
       
-      // Enhanced AI: Defenders actively chase player
+      // Enhanced AI: Defenders chase player only when in front, stop when behind
       newState.defenders = newState.defenders.map(defender => {
         const dx = newState.player.x - defender.x;
         const dy = newState.player.y - defender.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Improved chase algorithm with acceleration
-        if (distance > 5) {
+        // Only chase if defender is ahead of or level with player (defender.y <= player.y)
+        if (defender.y <= newState.player.y && distance > 5) {
           const chaseSpeed = defender.speed * (1 + newState.score / 5000); // Increase with score
           const accelerationFactor = Math.min(2, distance / 100); // Faster when far away
           
           defender.x += (dx / distance) * chaseSpeed * accelerationFactor;
           defender.y += (dy / distance) * chaseSpeed * accelerationFactor;
+        } else {
+          // If behind player, just move down with field speed
+          defender.y += newState.gameSpeed;
         }
-        
-        // Move defenders down with field (maintaining relative position)
-        defender.y += newState.gameSpeed;
         
         return defender;
       });
@@ -373,8 +373,8 @@ const GameCanvas: React.FC = () => {
       const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 100 && d.y > -100);
       newState.defenders = visibleDefenders;
       
-      // Spawn new defenders with better spacing
-      if (Math.random() < 0.015 + (newState.score / 50000)) {
+      // Spawn new defenders more frequently for continuous challenge
+      if (Math.random() < 0.03 + (newState.score / 30000)) {
         const newDefender = getDefenderFromPool(
           Math.random() * (canvasWidth - 40) + 20,
           -30,
