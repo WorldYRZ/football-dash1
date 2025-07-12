@@ -474,9 +474,12 @@ const GameCanvas: React.FC = () => {
       const speedDiff = newState.targetGameSpeed - newState.gameSpeed;
       newState.gameSpeed += speedDiff * 0.1; // Gradual speed change
       
-      // Smooth field scrolling with delta time
+      // Player position-based yard calculation (more realistic)
       newState.fieldOffset += newState.gameSpeed * (deltaTime / 16.67);
-      newState.score = Math.floor(newState.fieldOffset / 12);
+      
+      // Calculate yards based on player's actual field position
+      const playerFieldPosition = (canvasHeight - newState.player.y) + newState.fieldOffset;
+      newState.score = Math.floor(playerFieldPosition / 12);
       
       // Hide achievement after 3 seconds
       if (newState.showAchievement && Date.now() - (newState.currentAchievement?.timestamp || 0) > 3000) {
@@ -598,6 +601,36 @@ const GameCanvas: React.FC = () => {
         
         return defender;
       });
+      
+      // Add collision detection between defenders to prevent overlapping
+      for (let i = 0; i < newState.defenders.length; i++) {
+        for (let j = i + 1; j < newState.defenders.length; j++) {
+          const defenderA = newState.defenders[i];
+          const defenderB = newState.defenders[j];
+          
+          const dx = defenderA.x - defenderB.x;
+          const dy = defenderA.y - defenderB.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const minDistance = 35; // Minimum distance between defenders
+          
+          if (distance < minDistance && distance > 0) {
+            // Calculate separation force
+            const separationForce = (minDistance - distance) / 2;
+            const normalX = dx / distance;
+            const normalY = dy / distance;
+            
+            // Apply separation force to both defenders
+            defenderA.x += normalX * separationForce * 0.5;
+            defenderA.y += normalY * separationForce * 0.5;
+            defenderB.x -= normalX * separationForce * 0.5;
+            defenderB.y -= normalY * separationForce * 0.5;
+            
+            // Keep defenders within field bounds
+            defenderA.x = Math.max(30, Math.min(canvasWidth - 30, defenderA.x));
+            defenderB.x = Math.max(30, Math.min(canvasWidth - 30, defenderB.x));
+          }
+        }
+      }
       
       // Improved AI despawning - remove defenders far off screen to prevent memory issues
       const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 150 && d.y > -150);
