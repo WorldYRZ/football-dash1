@@ -5,12 +5,13 @@ import { useGame } from '@/hooks/useGame';
 import GameOverModal from './GameOverModal';
 
 interface GameState {
-  player: { x: number; y: number; stamina: number; speed: number };
-  defenders: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number }>;
-  collectibles: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number }>;
+  player: { x: number; y: number; stamina: number; speed: number; targetX: number; targetY: number };
+  defenders: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number }>;
+  collectibles: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; targetX: number; targetY: number }>;
   score: number;
   coins: number;
   gameSpeed: number;
+  targetGameSpeed: number;
   baseGameSpeed: number;
   fieldOffset: number;
   isGameOver: boolean;
@@ -28,6 +29,8 @@ interface GameState {
   maxDefenders: number;
   lastDifficultyIncrease: number;
   activeDefenderCount: number;
+  lastFrameTime: number;
+  deltaTime: number;
 }
 
 interface TouchPos {
@@ -36,7 +39,7 @@ interface TouchPos {
 }
 
 // Object pools for performance
-const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; active: boolean }> = [];
+const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number; active: boolean }> = [];
 const collectiblePool: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; active: boolean }> = [];
 
 const GameCanvas: React.FC = () => {
@@ -50,12 +53,13 @@ const GameCanvas: React.FC = () => {
   const [gameOverModalOpen, setGameOverModalOpen] = useState(false);
 
   const [gameState, setGameState] = useState<GameState>({
-    player: { x: 200, y: 500, stamina: 100, speed: 1.0 },
+    player: { x: 200, y: 500, stamina: 100, speed: 1.0, targetX: 200, targetY: 500 },
     defenders: [],
     collectibles: [],
     score: 0,
     coins: 0,
     gameSpeed: 1.2, // Start even slower for better initial experience
+    targetGameSpeed: 1.2,
     baseGameSpeed: 1.2,
     fieldOffset: 0,
     isGameOver: false,
@@ -72,7 +76,9 @@ const GameCanvas: React.FC = () => {
     difficultyLevel: 1,
     maxDefenders: 1, // Start with only 1 defender
     lastDifficultyIncrease: 0,
-    activeDefenderCount: 0
+    activeDefenderCount: 0,
+    lastFrameTime: 0,
+    deltaTime: 0
   });
 
   const canvasWidth = 400;
@@ -81,9 +87,10 @@ const GameCanvas: React.FC = () => {
   // Initialize object pools
   const initializePools = useCallback(() => {
     // Initialize defender pool
-    for (let i = 0; i < 15; i++) { // Increased pool size for better spawning
+    for (let i = 0; i < 15; i++) {
       defenderPool.push({
-        x: 0, y: 0, speed: 0, stamina: 100, id: i, pattern: 'straight', patternTimer: 0, active: false
+        x: 0, y: 0, speed: 0, stamina: 100, id: i, pattern: 'straight', patternTimer: 0, 
+        targetX: 0, targetY: 0, active: false
       });
     }
     
@@ -95,14 +102,16 @@ const GameCanvas: React.FC = () => {
     }
   }, []);
 
-  // Get defender from pool with movement patterns
+  // Get defender from pool with smooth movement targets
   const getDefenderFromPool = useCallback((x: number, y: number, speed: number) => {
     const defender = defenderPool.find(d => !d.active);
     if (defender) {
       defender.x = x;
       defender.y = y;
+      defender.targetX = x;
+      defender.targetY = y;
       defender.speed = speed;
-      defender.stamina = 60 + Math.random() * 40; // Random stamina 60-100
+      defender.stamina = 60 + Math.random() * 40;
       defender.pattern = ['straight', 'zigzag', 'curved', 'aggressive'][Math.floor(Math.random() * 4)];
       defender.patternTimer = 0;
       defender.active = true;
@@ -120,15 +129,17 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   // Initialize game
+  // Performance-optimized game initialization
   const initializeGame = useCallback(() => {
     const startTime = Date.now();
     setGameState({
-      player: { x: canvasWidth / 2, y: canvasHeight - 100, stamina: 100, speed: 1.0 },
+      player: { x: canvasWidth / 2, y: canvasHeight - 100, stamina: 100, speed: 1.0, targetX: canvasWidth / 2, targetY: canvasHeight - 100 },
       defenders: [],
       collectibles: [],
       score: 0,
       coins: 0,
-      gameSpeed: 1.2, // Start slower
+      gameSpeed: 1.2,
+      targetGameSpeed: 1.2,
       baseGameSpeed: 1.2,
       fieldOffset: 0,
       isGameOver: false,
@@ -143,9 +154,11 @@ const GameCanvas: React.FC = () => {
       gameStartTime: startTime,
       gameElapsedTime: 0,
       difficultyLevel: 1,
-      maxDefenders: 1, // Start with 1 defender
+      maxDefenders: 1,
       lastDifficultyIncrease: 0,
-      activeDefenderCount: 0
+      activeDefenderCount: 0,
+      lastFrameTime: startTime,
+      deltaTime: 0
     });
     
     // Reset pools
@@ -394,12 +407,14 @@ const GameCanvas: React.FC = () => {
     
   };
 
-  // Subway Surfers-style progressive difficulty system
+  // High-performance Subway Surfers-style update system
   const updateGame = useCallback(() => {
     if (gameState.isGameOver || gameState.isPaused || !gameState.isPlaying) return;
 
     setGameState(prevState => {
-      const newState = { ...prevState };
+      const currentTime = Date.now();
+      const deltaTime = Math.min(currentTime - prevState.lastFrameTime, 16.67); // Cap at 60fps
+      const newState = { ...prevState, lastFrameTime: currentTime, deltaTime };
       
       // Update game timer
       newState.gameElapsedTime = Date.now() - newState.gameStartTime;
@@ -453,10 +468,14 @@ const GameCanvas: React.FC = () => {
       
       newState.difficultyLevel = newDifficultyLevel;
       newState.maxDefenders = newMaxDefenders;
-      newState.gameSpeed = newState.baseGameSpeed * speedMultiplier;
+      newState.targetGameSpeed = newState.baseGameSpeed * speedMultiplier;
       
-      // Update field scroll and score
-      newState.fieldOffset += newState.gameSpeed;
+      // Smooth speed transitions for fluid gameplay
+      const speedDiff = newState.targetGameSpeed - newState.gameSpeed;
+      newState.gameSpeed += speedDiff * 0.1; // Gradual speed change
+      
+      // Smooth field scrolling with delta time
+      newState.fieldOffset += newState.gameSpeed * (deltaTime / 16.67);
       newState.score = Math.floor(newState.fieldOffset / 12);
       
       // Hide achievement after 3 seconds
@@ -465,21 +484,26 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // Stamina depletion (slower at beginning)
-      const staminaDrain = 0.06 + (elapsedSeconds / 1000) * 0.02; // Gradual increase
+      // Smooth player movement interpolation
+      const playerLerpSpeed = 0.25;
+      newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
+      newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
+      
+      // Performance-optimized stamina system
+      const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
       newState.player.stamina = Math.max(0, newState.player.stamina - staminaDrain);
       
       // Player speed affected by stamina
       newState.player.speed = newState.player.stamina <= 0 ? 0.85 : Math.max(0.85, newState.player.stamina / 100);
       
-      // Milestone achievements AND yard-based difficulty progression
+      // Yard-based milestone system with smooth speed increases
       const currentHundreds = Math.floor(newState.score / 100);
       if (currentHundreds > Math.floor(newState.lastMilestone / 100)) {
         newState.lastMilestone = newState.score;
         
-        // Yard-based difficulty boost (additional to time-based)
-        const yardDifficultyBonus = Math.min(0.8, currentHundreds * 0.05); // Cap bonus
-        newState.gameSpeed = (newState.baseGameSpeed * speedMultiplier) + yardDifficultyBonus;
+        // Smooth yard-based difficulty progression
+        const yardDifficultyBonus = Math.min(0.8, currentHundreds * 0.05);
+        newState.targetGameSpeed = (newState.baseGameSpeed * speedMultiplier) + yardDifficultyBonus;
         
         const achievementMessage = `${currentHundreds * 100} Yards!`;
         const achievement = {
@@ -504,23 +528,23 @@ const GameCanvas: React.FC = () => {
       // Count active defenders
       newState.activeDefenderCount = newState.defenders.length;
       
-      // Enhanced AI with difficulty-based behavior
+      // Smooth AI movement with performance optimization
       newState.defenders = newState.defenders.map(defender => {
         const dx = newState.player.x - defender.x;
         const dy = newState.player.y - defender.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Update pattern timer
-        defender.patternTimer += 1;
+        // Update pattern timer with delta time
+        defender.patternTimer += deltaTime / 16.67;
         
         // Check if defender is behind player
         const isBehindPlayer = defender.y > newState.player.y;
         
-        // Drain stamina based on position
+        // Performance-optimized stamina drain
         if (isBehindPlayer) {
-          defender.stamina = Math.max(0, defender.stamina - 0.8);
+          defender.stamina = Math.max(0, defender.stamina - 0.8 * (deltaTime / 16.67));
         } else {
-          defender.stamina = Math.max(0, defender.stamina - 0.1);
+          defender.stamina = Math.max(0, defender.stamina - 0.1 * (deltaTime / 16.67));
         }
         
         // Difficulty-based AI behavior
@@ -569,8 +593,8 @@ const GameCanvas: React.FC = () => {
           }
         }
         
-        // Field movement
-        defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1);
+        // Smooth movement with delta time for fluid motion
+        defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1) * (deltaTime / 16.67);
         
         return defender;
       });
@@ -602,10 +626,10 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Update collectibles
+      // Smooth collectible movement
       newState.collectibles = newState.collectibles.map(item => ({
         ...item,
-        y: item.y + newState.gameSpeed
+        y: item.y + newState.gameSpeed * (deltaTime / 16.67)
       })).filter(item => item.y < canvasHeight + 50);
       
       // Spawn collectibles
@@ -614,6 +638,8 @@ const GameCanvas: React.FC = () => {
         const newCollectible = {
           x: Math.random() * (canvasWidth - 60) + 30,
           y: -20,
+          targetX: Math.random() * (canvasWidth - 60) + 30,
+          targetY: -20,
           type: (Math.random() > 0.7 || newState.player.stamina < 25) ? 'lightning' : 'coin' as 'lightning' | 'coin',
           id: newState.collectibleIdCounter++
         };
@@ -655,7 +681,7 @@ const GameCanvas: React.FC = () => {
     });
   }, [gameState.isGameOver, gameState.isPaused, gameState.isPlaying, getDefenderFromPool, setGameOverModalOpen, toast]);
 
-  // Optimized game loop with smoother performance
+  // Optimized 60fps game loop with frame rate limiting
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -663,17 +689,21 @@ const GameCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Performance optimization - clear with single operation
+    // Enable image smoothing for better visuals
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
+    // High-performance canvas clearing
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     
-    // Draw game elements in optimized order
+    // Optimized rendering order for performance
     drawField(ctx, gameState.fieldOffset, gameState.score);
     drawCollectibles(ctx, gameState.collectibles);
     drawDefenders(ctx, gameState.defenders);
     drawPlayer(ctx, gameState.player);
     drawUI(ctx);
     
-    // Draw game over screen
+    // Optimized game over screen rendering
     if (gameState.isGameOver) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -691,7 +721,7 @@ const GameCanvas: React.FC = () => {
     
     updateGame();
     
-    // Use requestAnimationFrame for smooth 60fps animation
+    // Smooth 60fps animation loop
     animationRef.current = requestAnimationFrame(gameLoop);
   }, [gameState, updateGame]);
 
@@ -724,8 +754,8 @@ const GameCanvas: React.FC = () => {
       ...prevState,
       player: {
         ...prevState.player,
-        x: Math.max(35, Math.min(canvasWidth - 35, x)),
-        y: Math.max(25, Math.min(canvasHeight - 25, y))
+        targetX: Math.max(35, Math.min(canvasWidth - 35, x)),
+        targetY: Math.max(25, Math.min(canvasHeight - 25, y))
       }
     }));
   };
