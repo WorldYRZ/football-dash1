@@ -2,41 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Football Dash Design System - Stadium Theme */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base colors */
+    --background: 120 20% 8%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Field colors */
+    --field-green: 120 45% 25%;
+    --field-green-dark: 120 45% 20%;
+    --field-lines: 0 0% 95%;
+    --field-numbers: 0 0% 85%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    /* Player and game colors */
+    --player-home: 220 85% 55%;
+    --player-away: 0 85% 55%;
+    --defender-color: 15 80% 45%;
+    
+    /* UI colors */
+    --card: 120 15% 12%;
+    --card-foreground: 0 0% 95%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --popover: 120 15% 12%;
+    --popover-foreground: 0 0% 95%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --primary: 120 45% 35%;
+    --primary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: 120 15% 20%;
+    --secondary-foreground: 0 0% 90%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --muted: 120 10% 25%;
+    --muted-foreground: 0 0% 70%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 220 85% 55%;
+    --accent-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --radius: 0.5rem;
+    --border: 120 15% 25%;
+    --input: 120 15% 20%;
+    --ring: 120 45% 35%;
+
+    /* Game-specific colors */
+    --stamina-full: 120 80% 50%;
+    --stamina-low: 30 95% 60%;
+    --stamina-empty: 0 85% 55%;
+    
+    --lightning: 60 100% 70%;
+    --coin: 45 100% 60%;
+    
+    /* Gradients */
+    --gradient-field: linear-gradient(180deg, hsl(var(--field-green)), hsl(var(--field-green-dark)));
+    --gradient-stadium: linear-gradient(180deg, hsl(var(--background)), hsl(120 25% 12%));
+    --gradient-energy: linear-gradient(90deg, hsl(var(--lightning)), hsl(var(--stamina-full)));
+
+    /* Shadows and effects */
+    --shadow-player: 0 4px 20px hsl(var(--player-home) / 0.4);
+    --shadow-glow: 0 0 30px hsl(var(--lightning) / 0.6);
+    --shadow-stadium: 0 10px 40px hsl(0 0% 0% / 0.3);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
