@@ -2,72 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Football Dash Design System - Stadium Theme */
+/* Football Dash Design System - Retro 8-Bit Arcade Theme */
 
 @layer base {
   :root {
-    /* Base colors */
-    --background: 120 20% 8%;
-    --foreground: 0 0% 98%;
+    /* Base colors - Dark arcade cabinet style */
+    --background: 240 8% 8%;
+    --foreground: 120 100% 85%;
 
-    /* Field colors */
-    --field-green: 120 45% 25%;
-    --field-green-dark: 120 45% 20%;
-    --field-lines: 0 0% 95%;
-    --field-numbers: 0 0% 85%;
+    /* Field colors - Bright retro green */
+    --field-green: 120 100% 25%;
+    --field-green-dark: 120 100% 18%;
+    --field-lines: 0 0% 100%;
+    --field-numbers: 60 100% 90%;
 
-    /* Player and game colors */
-    --player-home: 220 85% 55%;
-    --player-away: 0 85% 55%;
-    --defender-color: 15 80% 45%;
+    /* Player and game colors - Vibrant arcade colors */
+    --player-home: 200 100% 60%;
+    --player-away: 0 100% 65%;
+    --defender-color: 300 100% 60%;
     
-    /* UI colors */
-    --card: 120 15% 12%;
-    --card-foreground: 0 0% 95%;
+    /* UI colors - High contrast retro */
+    --card: 240 15% 12%;
+    --card-foreground: 120 100% 85%;
 
-    --popover: 120 15% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 240 15% 12%;
+    --popover-foreground: 120 100% 85%;
 
-    --primary: 120 45% 35%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 60 100% 50%;
+    --primary-foreground: 240 8% 8%;
 
-    --secondary: 120 15% 20%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 300 100% 50%;
+    --secondary-foreground: 240 8% 8%;
 
-    --muted: 120 10% 25%;
-    --muted-foreground: 0 0% 70%;
+    --muted: 240 10% 20%;
+    --muted-foreground: 120 80% 70%;
 
-    --accent: 220 85% 55%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 180 100% 50%;
+    --accent-foreground: 240 8% 8%;
 
-    --destructive: 0 85% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 100% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 120 15% 25%;
-    --input: 120 15% 20%;
-    --ring: 120 45% 35%;
+    --border: 240 15% 20%;
+    --input: 240 15% 15%;
+    --ring: 60 100% 50%;
 
-    /* Game-specific colors */
-    --stamina-full: 120 80% 50%;
-    --stamina-low: 30 95% 60%;
-    --stamina-empty: 0 85% 55%;
+    /* Game-specific colors - Neon arcade style */
+    --stamina-full: 120 100% 50%;
+    --stamina-low: 30 100% 60%;
+    --stamina-empty: 0 100% 50%;
     
     --lightning: 60 100% 70%;
-    --coin: 45 100% 60%;
+    --coin: 45 100% 55%;
     
-    /* Gradients */
+    /* Retro arcade gradients */
     --gradient-field: linear-gradient(180deg, hsl(var(--field-green)), hsl(var(--field-green-dark)));
-    --gradient-stadium: linear-gradient(180deg, hsl(var(--background)), hsl(120 25% 12%));
-    --gradient-energy: linear-gradient(90deg, hsl(var(--lightning)), hsl(var(--stamina-full)));
+    --gradient-arcade: linear-gradient(45deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --gradient-neon: linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary)));
+    --gradient-screen: linear-gradient(180deg, hsl(240 8% 8%), hsl(240 15% 12%));
 
-    /* Shadows and effects */
-    --shadow-player: 0 4px 20px hsl(var(--player-home) / 0.4);
-    --shadow-glow: 0 0 30px hsl(var(--lightning) / 0.6);
-    --shadow-stadium: 0 10px 40px hsl(0 0% 0% / 0.3);
+    /* Retro effects */
+    --shadow-neon: 0 0 20px hsl(var(--primary)), 0 0 40px hsl(var(--primary)), 0 0 60px hsl(var(--primary));
+    --shadow-arcade: 0 8px 0 hsl(240 15% 6%), 0 12px 20px hsl(0 0% 0% / 0.5);
+    --shadow-pixel: 4px 4px 0 hsl(240 15% 6%);
 
     /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-pixel: all 0.1s steps(2, end);
+    --transition-arcade: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     --radius: 0.75rem;
 
@@ -133,6 +134,56 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-pixel;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+}
+
+@layer components {
+  /* Retro 8-bit UI Components */
+  .arcade-button {
+    @apply bg-primary text-primary-foreground font-pixel text-xs px-4 py-3 uppercase tracking-wider;
+    @apply border-4 border-primary-foreground;
+    @apply shadow-[4px_4px_0_hsl(var(--primary-foreground))] hover:shadow-[2px_2px_0_hsl(var(--primary-foreground))];
+    @apply transition-all duration-100 hover:translate-x-0.5 hover:translate-y-0.5;
+    @apply active:shadow-none active:translate-x-1 active:translate-y-1;
+  }
+
+  .arcade-panel {
+    @apply bg-card border-4 border-card-foreground;
+    @apply shadow-[8px_8px_0_hsl(var(--muted))];
+    image-rendering: pixelated;
+  }
+
+  .neon-text {
+    @apply font-pixel uppercase tracking-wider;
+    text-shadow: 
+      0 0 5px hsl(var(--primary)),
+      0 0 10px hsl(var(--primary)),
+      0 0 15px hsl(var(--primary)),
+      0 0 20px hsl(var(--primary));
+  }
+
+  .pixel-border {
+    border-image: url("data:image/svg+xml;charset=utf-8,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h25v25H0zM75 0h25v25H75zM0 75h25v25H0zM75 75h25v25H75z' fill='%23fff'/%3E%3C/svg%3E") 25;
+  }
+
+  .scanlines::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 255, 0, 0.03) 2px,
+      rgba(0, 255, 0, 0.03) 4px
+    );
+    pointer-events: none;
   }
 }

@@ -14,52 +14,52 @@ const GameNav: React.FC = () => {
 
   return (
     <>
-      <nav className="w-full max-w-md mx-auto p-4 bg-background/80 backdrop-blur-sm rounded-lg border mb-4">
+      <nav className="w-full max-w-md mx-auto arcade-panel p-3 mb-4">
         <div className="flex items-center justify-between">
           {user ? (
             <div className="flex items-center gap-3">
               <div className="flex flex-col">
-                <span className="text-sm font-medium">{profile?.display_name}</span>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Coins className="h-3 w-3 text-yellow-500" />
-                  {profile?.coin_balance?.toLocaleString() || 0}
+                <span className="text-xs font-pixel text-primary uppercase">{profile?.display_name}</span>
+                <div className="flex items-center gap-1 text-xs font-pixel">
+                  <Coins className="h-3 w-3 text-coin animate-pixel-blink" />
+                  <span className="text-coin">{profile?.coin_balance?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </div>
           ) : (
-            <Button onClick={() => setAuthModalOpen(true)} size="sm">
-              <User className="h-4 w-4 mr-2" />
-              Sign In
-            </Button>
+            <button 
+              onClick={() => setAuthModalOpen(true)} 
+              className="arcade-button text-xs"
+            >
+              <User className="h-3 w-3 mr-1" />
+              SIGN IN
+            </button>
           )}
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+          <div className="flex items-center gap-1">
+            <button
+              className="arcade-button text-xs px-2 py-2"
               onClick={() => setLeaderboardModalOpen(true)}
             >
-              <Trophy className="h-4 w-4" />
-            </Button>
+              <Trophy className="h-3 w-3" />
+            </button>
 
             {user && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                className="arcade-button text-xs px-2 py-2"
                 onClick={() => setStoreModalOpen(true)}
               >
-                <ShoppingBag className="h-4 w-4" />
-              </Button>
+                <ShoppingBag className="h-3 w-3" />
+              </button>
             )}
 
             {user && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                className="arcade-button text-xs px-2 py-2"
                 onClick={signOut}
               >
-                <LogOut className="h-4 w-4" />
-              </Button>
+                <LogOut className="h-3 w-3" />
+              </button>
             )}
           </div>
         </div>

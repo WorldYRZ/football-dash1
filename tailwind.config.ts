@@ -18,6 +18,10 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'pixel': ['Press Start 2P', 'monospace'],
+				'orbitron': ['Orbitron', 'monospace'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -109,8 +113,8 @@ export default {
 					'100%': { transform: 'translateY(100px)' }
 				},
 				'player-glow': {
-					'0%, 100%': { boxShadow: '0 4px 20px hsl(var(--player-home) / 0.4)' },
-					'50%': { boxShadow: '0 6px 30px hsl(var(--player-home) / 0.8)' }
+					'0%, 100%': { filter: 'drop-shadow(0 0 10px hsl(var(--primary)))' },
+					'50%': { filter: 'drop-shadow(0 0 20px hsl(var(--primary))) drop-shadow(0 0 30px hsl(var(--primary)))' }
 				},
 				'coin-collect': {
 					'0%': { transform: 'scale(1) rotate(0deg)', opacity: '1' },
@@ -124,16 +128,40 @@ export default {
 					'0%': { transform: 'scale(1)', opacity: '1' },
 					'50%': { transform: 'scale(1.2)', opacity: '0.8' },
 					'100%': { transform: 'scale(1)', opacity: '1' }
+				},
+				'pixel-blink': {
+					'0%, 50%': { opacity: '1' },
+					'51%, 100%': { opacity: '0.7' }
+				},
+				'neon-pulse': {
+					'0%, 100%': { 
+						filter: 'drop-shadow(0 0 5px hsl(var(--primary))) drop-shadow(0 0 10px hsl(var(--primary)))',
+						transform: 'scale(1)'
+					},
+					'50%': { 
+						filter: 'drop-shadow(0 0 10px hsl(var(--primary))) drop-shadow(0 0 20px hsl(var(--primary))) drop-shadow(0 0 30px hsl(var(--primary)))',
+						transform: 'scale(1.02)'
+					}
+				},
+				'arcade-bounce': {
+					'0%': { transform: 'translateY(0) scale(1)' },
+					'25%': { transform: 'translateY(-2px) scale(1.05)' },
+					'50%': { transform: 'translateY(0) scale(1)' },
+					'75%': { transform: 'translateY(-1px) scale(1.02)' },
+					'100%': { transform: 'translateY(0) scale(1)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'field-scroll': 'field-scroll 2s linear infinite',
-				'player-glow': 'player-glow 2s ease-in-out infinite',
+				'player-glow': 'player-glow 1.5s ease-in-out infinite',
 				'coin-collect': 'coin-collect 0.5s ease-out',
 				'lightning-flash': 'lightning-flash 1s ease-in-out infinite',
-				'celebration': 'celebration 0.8s ease-out'
+				'celebration': 'celebration 0.8s ease-out',
+				'pixel-blink': 'pixel-blink 1s steps(2, start) infinite',
+				'neon-pulse': 'neon-pulse 2s ease-in-out infinite',
+				'arcade-bounce': 'arcade-bounce 2s ease-in-out infinite'
 			}
 		}
 	},

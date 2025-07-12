@@ -20,55 +20,57 @@ const StartScreen: React.FC<StartScreenProps> = ({
   coinBalance 
 }) => {
   return (
-    <div className="w-full max-w-md mx-auto">
-      <Card className="p-8 bg-gradient-to-br from-field-green/10 to-primary/5 border-2 border-primary/20">
-        <CardContent className="space-y-6">
+    <div className="w-full max-w-md mx-auto relative">
+      <div className="arcade-panel p-6 relative scanlines">
+        <div className="space-y-6">
           {/* Game Title */}
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl font-bold text-primary tracking-tight">
+          <div className="text-center space-y-3">
+            <h1 className="text-2xl font-pixel text-primary neon-text uppercase tracking-wider animate-neon-pulse">
               Football Dash
             </h1>
-            <p className="text-foreground/70 text-lg">
-              Endless Running Adventure
-            </p>
+            <div className="bg-muted/50 border-2 border-accent p-2">
+              <p className="text-xs font-pixel text-accent uppercase">
+                8-bit Football Arcade
+              </p>
+            </div>
           </div>
 
           {/* Stats Display */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-background/50 rounded-lg border">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Trophy className="h-4 w-4 text-yellow-500" />
-                <span className="text-xs text-muted-foreground">Best</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="text-center arcade-panel p-3">
+              <div className="flex items-center justify-center gap-1 mb-2">
+                <Trophy className="h-3 w-3 text-primary animate-pixel-blink" />
+                <span className="text-xs font-pixel text-primary uppercase">Best</span>
               </div>
-              <div className="text-xl font-bold text-foreground">
+              <div className="text-lg font-pixel text-foreground">
                 {highScore.toLocaleString()}
               </div>
             </div>
             
-            <div className="text-center p-3 bg-background/50 rounded-lg border">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                <span className="text-xs text-muted-foreground">Coins</span>
+            <div className="text-center arcade-panel p-3">
+              <div className="flex items-center justify-center gap-1 mb-2">
+                <Zap className="h-3 w-3 text-coin animate-lightning-flash" />
+                <span className="text-xs font-pixel text-coin uppercase">Coins</span>
               </div>
-              <div className="text-xl font-bold text-foreground">
+              <div className="text-lg font-pixel text-foreground">
                 {coinBalance.toLocaleString()}
               </div>
             </div>
           </div>
 
           {/* Game Features */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-foreground/80">
-              <Target className="h-4 w-4 text-primary" />
-              <span>Dodge defenders and run for yards</span>
+          <div className="space-y-2 bg-background/80 border-2 border-muted p-3">
+            <div className="flex items-center gap-2 text-xs font-pixel">
+              <Target className="h-3 w-3 text-secondary" />
+              <span className="text-secondary uppercase">Dodge defenders</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-foreground/80">
-              <Zap className="h-4 w-4 text-yellow-500" />
-              <span>Collect lightning bolts for stamina</span>
+            <div className="flex items-center gap-2 text-xs font-pixel">
+              <Zap className="h-3 w-3 text-lightning" />
+              <span className="text-lightning uppercase">Collect power-ups</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-foreground/80">
-              <Badge variant="outline" className="h-4 w-4 rounded-full p-0 bg-yellow-500" />
-              <span>Earn coins to unlock customizations</span>
+            <div className="flex items-center gap-2 text-xs font-pixel">
+              <div className="h-3 w-3 bg-coin border border-foreground" />
+              <span className="text-coin uppercase">Earn coins</span>
             </div>
           </div>
 
@@ -76,43 +78,46 @@ const StartScreen: React.FC<StartScreenProps> = ({
           <div className="space-y-3">
             <Button 
               onClick={onStartGame}
+              variant="arcade"
               size="lg" 
-              className="w-full text-lg font-semibold hover:scale-105 transition-transform"
+              className="w-full"
             >
-              <Play className="h-5 w-5 mr-2" />
-              START GAME
+              <Play className="h-4 w-4 mr-2" />
+              Start Game
             </Button>
 
             <div className="grid grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
                 onClick={onOpenStore}
-                className="flex items-center gap-2"
+                size="sm"
               >
-                <ShoppingBag className="h-4 w-4" />
+                <ShoppingBag className="h-3 w-3" />
                 Store
               </Button>
               
               <Button 
                 variant="outline" 
                 onClick={onOpenLeaderboard}
-                className="flex items-center gap-2"
+                size="sm"
               >
-                <Trophy className="h-4 w-4" />
-                Leaderboard
+                <Trophy className="h-3 w-3" />
+                Board
               </Button>
             </div>
           </div>
 
           {/* Quick Tips */}
-          <div className="text-center text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
-            <p className="font-medium mb-1">💡 Pro Tips</p>
-            <p>• Drag anywhere to move instantly</p>
-            <p>• Low stamina = slower movement</p>
-            <p>• AI gets smarter as you progress</p>
+          <div className="text-center bg-muted border-2 border-primary/50 p-3">
+            <p className="font-pixel text-xs text-primary mb-2 uppercase">Tips</p>
+            <div className="space-y-1 text-xs font-pixel text-muted-foreground">
+              <p>• Drag to move fast</p>
+              <p>• Low stamina = slow</p>
+              <p>• AI learns from you</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
