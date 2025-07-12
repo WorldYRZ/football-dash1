@@ -5,8 +5,32 @@ import { useGame } from '@/hooks/useGame';
 import GameOverModal from './GameOverModal';
 
 interface GameState {
-  player: { x: number; y: number; stamina: number; speed: number; targetX: number; targetY: number };
-  defenders: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number }>;
+  player: { 
+    x: number; 
+    y: number; 
+    stamina: number; 
+    speed: number; 
+    targetX: number; 
+    targetY: number;
+    isJumping: boolean;
+    jumpStartTime: number;
+    jumpCooldownEnd: number;
+  };
+  defenders: Array<{ 
+    x: number; 
+    y: number; 
+    speed: number; 
+    stamina: number; 
+    id: number; 
+    pattern: string; 
+    patternTimer: number; 
+    targetX: number; 
+    targetY: number;
+    isDiving: boolean;
+    diveStartTime: number;
+    diveTargetX: number;
+    diveTargetY: number;
+  }>;
   collectibles: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; targetX: number; targetY: number }>;
   score: number;
   coins: number;
@@ -39,7 +63,7 @@ interface TouchPos {
 }
 
 // Object pools for performance
-const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number; active: boolean }> = [];
+const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number; isDiving: boolean; diveStartTime: number; diveTargetX: number; diveTargetY: number; active: boolean }> = [];
 const collectiblePool: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; active: boolean }> = [];
 
 const GameCanvas: React.FC = () => {
@@ -53,7 +77,17 @@ const GameCanvas: React.FC = () => {
   const [gameOverModalOpen, setGameOverModalOpen] = useState(false);
 
   const [gameState, setGameState] = useState<GameState>({
-    player: { x: 200, y: 500, stamina: 100, speed: 1.0, targetX: 200, targetY: 500 },
+    player: { 
+      x: 200, 
+      y: 500, 
+      stamina: 100, 
+      speed: 1.0, 
+      targetX: 200, 
+      targetY: 500,
+      isJumping: false,
+      jumpStartTime: 0,
+      jumpCooldownEnd: 0
+    },
     defenders: [],
     collectibles: [],
     score: 0,
@@ -90,7 +124,7 @@ const GameCanvas: React.FC = () => {
     for (let i = 0; i < 15; i++) {
       defenderPool.push({
         x: 0, y: 0, speed: 0, stamina: 100, id: i, pattern: 'straight', patternTimer: 0, 
-        targetX: 0, targetY: 0, active: false
+        targetX: 0, targetY: 0, isDiving: false, diveStartTime: 0, diveTargetX: 0, diveTargetY: 0, active: false
       });
     }
     
@@ -114,6 +148,10 @@ const GameCanvas: React.FC = () => {
       defender.stamina = 60 + Math.random() * 40;
       defender.pattern = ['straight', 'zigzag', 'curved', 'aggressive'][Math.floor(Math.random() * 4)];
       defender.patternTimer = 0;
+      defender.isDiving = false;
+      defender.diveStartTime = 0;
+      defender.diveTargetX = 0;
+      defender.diveTargetY = 0;
       defender.active = true;
       return { ...defender };
     }
@@ -133,7 +171,17 @@ const GameCanvas: React.FC = () => {
   const initializeGame = useCallback(() => {
     const startTime = Date.now();
     setGameState({
-      player: { x: canvasWidth / 2, y: canvasHeight - 100, stamina: 100, speed: 1.0, targetX: canvasWidth / 2, targetY: canvasHeight - 100 },
+      player: { 
+        x: canvasWidth / 2, 
+        y: canvasHeight - 100, 
+        stamina: 100, 
+        speed: 1.0, 
+        targetX: canvasWidth / 2, 
+        targetY: canvasHeight - 100,
+        isJumping: false,
+        jumpStartTime: 0,
+        jumpCooldownEnd: 0
+      },
       defenders: [],
       collectibles: [],
       score: 0,
@@ -249,10 +297,17 @@ const GameCanvas: React.FC = () => {
     }
   };
 
-  // Draw player with top-down football player sprite and running animation
-  const drawPlayer = (ctx: CanvasRenderingContext2D, player: { x: number; y: number; stamina: number; speed: number }) => {
+  // Draw player with top-down football player sprite, running animation, and jumping
+  const drawPlayer = (ctx: CanvasRenderingContext2D, player: { x: number; y: number; stamina: number; speed: number; isJumping: boolean; jumpStartTime: number }) => {
     const time = Date.now() / 100; // Animation timer
     const runCycle = Math.sin(time) * 0.3; // Running animation cycle
+    
+    // JUMP ANIMATION - Calculate jump height and animation state
+    const currentTime = Date.now();
+    const jumpProgress = player.isJumping ? Math.min(1, (currentTime - player.jumpStartTime) / 500) : 0;
+    const jumpHeight = player.isJumping ? Math.sin(jumpProgress * Math.PI) * 15 : 0; // Arc motion
+    const jumpScale = player.isJumping ? 1 + jumpHeight * 0.02 : 1; // Slight scale effect
+    const shadowOffset = jumpHeight * 0.8; // Shadow moves as player jumps
     
     // Player team colors (blue team)
     const helmetColor = 'hsl(220, 85%, 55%)'; // Blue helmet
@@ -264,89 +319,117 @@ const GameCanvas: React.FC = () => {
     const staminaFactor = player.stamina / 100;
     const glowIntensity = staminaFactor > 0.5 ? 15 : staminaFactor > 0.25 ? 8 : 0;
     
-    // Player glow effect based on stamina
-    if (glowIntensity > 0) {
+    // JUMP INVULNERABILITY EFFECT
+    if (player.isJumping) {
+      ctx.shadowColor = 'hsl(60, 100%, 70%)'; // Golden glow when jumping
+      ctx.shadowBlur = 20;
+    } else if (glowIntensity > 0) {
       ctx.shadowColor = helmetColor;
       ctx.shadowBlur = glowIntensity;
     }
     
+    // Draw player shadow on ground (separated during jump)
+    if (player.isJumping) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(player.x, player.y + shadowOffset, 8 - jumpHeight * 0.3, 4 - jumpHeight * 0.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Apply jump position offset
+    const drawY = player.y - jumpHeight;
+    
+    // Save context for scaling
+    ctx.save();
+    ctx.translate(player.x, drawY);
+    ctx.scale(jumpScale, jumpScale);
+    ctx.translate(-player.x, -drawY);
+    
     // BODY (jersey) - oval shaped from top-down
     ctx.fillStyle = jerseyColor;
     ctx.beginPath();
-    ctx.ellipse(player.x, player.y, 12, 16, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x, drawY, 12, 16, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // ARMS - animated running motion
-    const armOffset = runCycle * 8;
+    // ARMS - animated running motion (tucked when jumping)
+    const armAnimation = player.isJumping ? runCycle * 4 : runCycle * 8; // Reduced motion when jumping
     ctx.fillStyle = skinColor;
     ctx.strokeStyle = jerseyColor;
     ctx.lineWidth = 2;
     
     // Left arm
     ctx.beginPath();
-    ctx.ellipse(player.x - 10, player.y + armOffset, 3, 8, Math.PI * 0.1, 0, Math.PI * 2);
+    ctx.ellipse(player.x - 10, drawY + armAnimation, 3, player.isJumping ? 6 : 8, Math.PI * 0.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     
     // Right arm  
     ctx.beginPath();
-    ctx.ellipse(player.x + 10, player.y - armOffset, 3, 8, -Math.PI * 0.1, 0, Math.PI * 2);
+    ctx.ellipse(player.x + 10, drawY - armAnimation, 3, player.isJumping ? 6 : 8, -Math.PI * 0.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     
-    // LEGS - animated running motion
+    // LEGS - animated running motion (tucked when jumping)
     ctx.fillStyle = pantsColor;
-    const legOffset = runCycle * 6;
+    const legAnimation = player.isJumping ? runCycle * 3 : runCycle * 6; // Legs more tucked when jumping
     
     // Left leg
     ctx.beginPath();
-    ctx.ellipse(player.x - 6, player.y + 8 + legOffset, 4, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x - 6, drawY + 8 + legAnimation, 4, player.isJumping ? 8 : 10, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // Right leg
     ctx.beginPath();
-    ctx.ellipse(player.x + 6, player.y + 8 - legOffset, 4, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x + 6, drawY + 8 - legAnimation, 4, player.isJumping ? 8 : 10, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // HELMET - team colored with face mask
     ctx.fillStyle = staminaFactor > 0.5 ? helmetColor : staminaFactor > 0.25 ? 'hsl(30, 85%, 55%)' : 'hsl(0, 85%, 55%)';
     ctx.beginPath();
-    ctx.ellipse(player.x, player.y - 8, 10, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x, drawY - 8, 10, 12, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // Helmet shine/highlight
     ctx.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
     ctx.beginPath();
-    ctx.ellipse(player.x - 3, player.y - 10, 4, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x - 3, drawY - 10, 4, 5, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // Face mask
     ctx.strokeStyle = 'hsl(0, 0%, 80%)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(player.x - 4, player.y - 4);
-    ctx.lineTo(player.x + 4, player.y - 4);
-    ctx.moveTo(player.x, player.y - 8);
-    ctx.lineTo(player.x, player.y - 2);
+    ctx.moveTo(player.x - 4, drawY - 4);
+    ctx.lineTo(player.x + 4, drawY - 4);
+    ctx.moveTo(player.x, drawY - 8);
+    ctx.lineTo(player.x, drawY - 2);
     ctx.stroke();
     
     // SHOULDER PADS
     ctx.fillStyle = jerseyColor;
     ctx.beginPath();
-    ctx.ellipse(player.x - 8, player.y - 4, 6, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x - 8, drawY - 4, 6, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(player.x + 8, player.y - 4, 6, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x + 8, drawY - 4, 6, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     
+    // Restore context
+    ctx.restore();
     ctx.shadowBlur = 0;
   };
 
-  // Draw defenders with top-down football player sprites and running animation
-  const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; pattern: string; id: number }>) => {
+  // Draw defenders with top-down football player sprites, running animation, and diving
+  const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; pattern: string; id: number; isDiving: boolean; diveStartTime: number }>) => {
     defenders.forEach(defender => {
       const time = Date.now() / 120; // Slightly different animation speed for defenders
       const runCycle = Math.sin(time + defender.id) * 0.3; // Individual animation cycles
+      
+      // DIVE ANIMATION - Calculate dive motion and visual state
+      const currentTime = Date.now();
+      const diveProgress = defender.isDiving ? Math.min(1, (currentTime - defender.diveStartTime) / 600) : 0; // 0.6 second dive
+      const diveStretch = defender.isDiving ? 1 + diveProgress * 0.5 : 1; // Stretch during dive
+      const diveHeight = defender.isDiving ? Math.sin(diveProgress * Math.PI) * 8 : 0; // Slight lift during dive
       
       // Defender team colors (red team)
       const helmetColor = 'hsl(15, 80%, 45%)'; // Red helmet
@@ -354,88 +437,112 @@ const GameCanvas: React.FC = () => {
       const pantsColor = 'hsl(15, 50%, 30%)'; // Darker red pants
       const skinColor = 'hsl(30, 50%, 70%)'; // Skin tone
       
-      // Speed-based intensity effects
+      // Speed-based intensity effects + dive effects
       const speedIntensity = Math.min(15, defender.speed * 3);
-      ctx.shadowColor = helmetColor;
-      ctx.shadowBlur = speedIntensity;
+      if (defender.isDiving) {
+        ctx.shadowColor = 'hsl(0, 85%, 60%)'; // Intense red glow when diving
+        ctx.shadowBlur = 25;
+      } else {
+        ctx.shadowColor = helmetColor;
+        ctx.shadowBlur = speedIntensity;
+      }
+      
+      // Apply dive position offset and scaling
+      const drawY = defender.y - diveHeight;
+      
+      // Save context for dive transformation
+      ctx.save();
+      ctx.translate(defender.x, drawY);
+      ctx.scale(diveStretch, defender.isDiving ? 0.8 : 1); // Flatten during dive
+      ctx.translate(-defender.x, -drawY);
       
       // BODY (jersey) - oval shaped from top-down
       ctx.fillStyle = jerseyColor;
       ctx.beginPath();
-      ctx.ellipse(defender.x, defender.y, 11, 15, 0, 0, Math.PI * 2);
+      ctx.ellipse(defender.x, drawY, 11, 15, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // ARMS - animated running motion
-      const armOffset = runCycle * 7;
+      // ARMS - animated running motion (extended during dive)
+      const armMotion = defender.isDiving ? runCycle * 3 : runCycle * 7; // Reduced motion when diving
       ctx.fillStyle = skinColor;
       ctx.strokeStyle = jerseyColor;
       ctx.lineWidth = 2;
       
-      // Left arm
+      // Left arm (extended forward during dive)
       ctx.beginPath();
-      ctx.ellipse(defender.x - 9, defender.y + armOffset, 3, 7, Math.PI * 0.1, 0, Math.PI * 2);
+      const leftArmX = defender.isDiving ? defender.x - 12 : defender.x - 9;
+      const leftArmY = defender.isDiving ? drawY - 2 : drawY + armMotion;
+      ctx.ellipse(leftArmX, leftArmY, 3, defender.isDiving ? 9 : 7, defender.isDiving ? Math.PI * 0.3 : Math.PI * 0.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       
-      // Right arm  
+      // Right arm (extended forward during dive)
       ctx.beginPath();
-      ctx.ellipse(defender.x + 9, defender.y - armOffset, 3, 7, -Math.PI * 0.1, 0, Math.PI * 2);
+      const rightArmX = defender.isDiving ? defender.x + 12 : defender.x + 9;
+      const rightArmY = defender.isDiving ? drawY - 2 : drawY - armMotion;
+      ctx.ellipse(rightArmX, rightArmY, 3, defender.isDiving ? 9 : 7, defender.isDiving ? -Math.PI * 0.3 : -Math.PI * 0.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       
-      // LEGS - animated running motion
+      // LEGS - animated running motion (extended during dive)
       ctx.fillStyle = pantsColor;
-      const legOffset = runCycle * 5;
+      const legMotion = defender.isDiving ? runCycle * 2 : runCycle * 5;
       
-      // Left leg
+      // Left leg (extended backward during dive)
       ctx.beginPath();
-      ctx.ellipse(defender.x - 5, defender.y + 7 + legOffset, 3, 9, 0, 0, Math.PI * 2);
+      const leftLegX = defender.isDiving ? defender.x - 8 : defender.x - 5;
+      const leftLegY = defender.isDiving ? drawY + 12 : drawY + 7 + legMotion;
+      ctx.ellipse(leftLegX, leftLegY, defender.isDiving ? 4 : 3, defender.isDiving ? 12 : 9, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Right leg
+      // Right leg (extended backward during dive)
       ctx.beginPath();
-      ctx.ellipse(defender.x + 5, defender.y + 7 - legOffset, 3, 9, 0, 0, Math.PI * 2);
+      const rightLegX = defender.isDiving ? defender.x + 8 : defender.x + 5;
+      const rightLegY = defender.isDiving ? drawY + 12 : drawY + 7 - legMotion;
+      ctx.ellipse(rightLegX, rightLegY, defender.isDiving ? 4 : 3, defender.isDiving ? 12 : 9, 0, 0, Math.PI * 2);
       ctx.fill();
       
       // HELMET - red team colored with face mask
       ctx.fillStyle = helmetColor;
       ctx.beginPath();
-      ctx.ellipse(defender.x, defender.y - 7, 9, 11, 0, 0, Math.PI * 2);
+      ctx.ellipse(defender.x, drawY - 7, 9, 11, 0, 0, Math.PI * 2);
       ctx.fill();
       
       // Helmet shine/highlight
       ctx.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
       ctx.beginPath();
-      ctx.ellipse(defender.x - 3, defender.y - 9, 3, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(defender.x - 3, drawY - 9, 3, 4, 0, 0, Math.PI * 2);
       ctx.fill();
       
       // Face mask
       ctx.strokeStyle = 'hsl(0, 0%, 80%)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(defender.x - 3, defender.y - 4);
-      ctx.lineTo(defender.x + 3, defender.y - 4);
-      ctx.moveTo(defender.x, defender.y - 7);
-      ctx.lineTo(defender.x, defender.y - 2);
+      ctx.moveTo(defender.x - 3, drawY - 4);
+      ctx.lineTo(defender.x + 3, drawY - 4);
+      ctx.moveTo(defender.x, drawY - 7);
+      ctx.lineTo(defender.x, drawY - 2);
       ctx.stroke();
       
       // SHOULDER PADS
       ctx.fillStyle = jerseyColor;
       ctx.beginPath();
-      ctx.ellipse(defender.x - 7, defender.y - 3, 5, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(defender.x - 7, drawY - 3, 5, 3, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.ellipse(defender.x + 7, defender.y - 3, 5, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(defender.x + 7, drawY - 3, 5, 3, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Speed trail effect for fast defenders
-      if (defender.speed > 2) {
-        ctx.fillStyle = `hsla(15, 80%, 45%, 0.3)`;
+      // Speed trail effect for fast defenders (enhanced during dive)
+      if (defender.speed > 2 || defender.isDiving) {
+        ctx.fillStyle = defender.isDiving ? 'hsla(15, 80%, 45%, 0.5)' : 'hsla(15, 80%, 45%, 0.3)';
         ctx.beginPath();
-        ctx.ellipse(defender.x, defender.y + 12, 8, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(defender.x, drawY + 12, defender.isDiving ? 12 : 8, defender.isDiving ? 5 : 3, 0, 0, Math.PI * 2);
         ctx.fill();
       }
       
+      // Restore context
+      ctx.restore();
       ctx.shadowBlur = 0;
     });
   };
@@ -625,6 +732,16 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
+      // JUMP MECHANICS - Handle player jumping state
+      
+      // Update jump state
+      if (newState.player.isJumping) {
+        const jumpDuration = 500; // 0.5 seconds
+        if (currentTime - newState.player.jumpStartTime > jumpDuration) {
+          newState.player.isJumping = false;
+        }
+      }
+      
       // ENDLESS RUNNER PLAYER MOVEMENT: Both horizontal and vertical with smooth interpolation
       const playerLerpSpeed = 0.25;
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
@@ -679,7 +796,7 @@ const GameCanvas: React.FC = () => {
       // Count active defenders
       newState.activeDefenderCount = newState.defenders.length;
       
-      // Smooth AI movement with performance optimization
+      // Smooth AI movement with performance optimization and DIVE MECHANICS
       newState.defenders = newState.defenders.map(defender => {
         const dx = newState.player.x - defender.x;
         const dy = newState.player.y - defender.y;
@@ -691,62 +808,91 @@ const GameCanvas: React.FC = () => {
         // Check if defender is behind player
         const isBehindPlayer = defender.y > newState.player.y;
         
-        // Performance-optimized stamina drain
-        if (isBehindPlayer) {
-          defender.stamina = Math.max(0, defender.stamina - 0.8 * (deltaTime / 16.67));
-        } else {
-          defender.stamina = Math.max(0, defender.stamina - 0.1 * (deltaTime / 16.67));
+        // DIVE MECHANICS - Check if defender should dive
+        if (!defender.isDiving && distance < 50 && Math.random() < 0.08) { // 8% chance to dive when close
+          defender.isDiving = true;
+          defender.diveStartTime = currentTime;
+          defender.diveTargetX = newState.player.x;
+          defender.diveTargetY = newState.player.y;
         }
         
-        // Difficulty-based AI behavior
-        const aiAccuracy = Math.min(0.9, 0.3 + (newState.difficultyLevel * 0.1)); // More accurate at higher levels
-        const aiSpeed = 1 + (newState.difficultyLevel * 0.2); // Faster at higher levels
-        
-        // Calculate effective speed
-        let staminaFactor = defender.stamina <= 0 ? 0.75 : 1;
-        let behindFactor = isBehindPlayer ? 0.6 : 1;
-        let effectiveSpeed = defender.speed * staminaFactor * behindFactor * aiSpeed;
-        
-        // Apply movement patterns (less predictable at higher difficulty)
-        let patternOffsetX = 0;
-        let patternOffsetY = 0;
-        
-        switch (defender.pattern) {
-          case 'zigzag':
-            patternOffsetX = Math.sin(defender.patternTimer * 0.1) * (30 / newState.difficultyLevel);
-            break;
-          case 'curved':
-            patternOffsetX = Math.cos(defender.patternTimer * 0.05) * (20 / newState.difficultyLevel);
-            patternOffsetY = Math.sin(defender.patternTimer * 0.08) * (10 / newState.difficultyLevel);
-            break;
-          case 'aggressive':
-            const aggressiveBoost = distance < 100 ? (1.2 + newState.difficultyLevel * 0.1) : 1;
-            patternOffsetX = Math.sin(defender.patternTimer * 0.15) * (15 / newState.difficultyLevel);
-            effectiveSpeed *= aggressiveBoost;
-            break;
-        }
-        
-        // AI tracking based on difficulty (imperfect at low levels)
-        if (distance > 5) {
-          const chaseSpeed = effectiveSpeed;
-          const accelerationFactor = Math.min(2, distance / 100);
+        // Update dive state
+        if (defender.isDiving) {
+          const diveProgress = Math.min(1, (currentTime - defender.diveStartTime) / 600); // 0.6 second dive
           
-          // Add inaccuracy at lower difficulty levels
-          const targetX = newState.player.x + patternOffsetX + (Math.random() - 0.5) * (100 * (1 - aiAccuracy));
-          const targetY = newState.player.y + patternOffsetY;
-          const adjustedDx = targetX - defender.x;
-          const adjustedDy = targetY - defender.y;
-          const adjustedDistance = Math.sqrt(adjustedDx * adjustedDx + adjustedDy * adjustedDy);
-          
-          if (adjustedDistance > 0) {
-            defender.x += (adjustedDx / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
-            defender.y += (adjustedDy / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
+          if (diveProgress >= 1) {
+            defender.isDiving = false; // End dive
+          } else {
+            // Dive towards target position
+            const diveSpeed = 4; // Fast dive speed
+            const targetDx = defender.diveTargetX - defender.x;
+            const targetDy = defender.diveTargetY - defender.y;
+            const targetDistance = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+            
+            if (targetDistance > 0) {
+              defender.x += (targetDx / targetDistance) * diveSpeed * (deltaTime / 16.67);
+              defender.y += (targetDy / targetDistance) * diveSpeed * (deltaTime / 16.67);
+            }
           }
+        } else {
+          // Normal AI movement when not diving
+          // Performance-optimized stamina drain
+          if (isBehindPlayer) {
+            defender.stamina = Math.max(0, defender.stamina - 0.8 * (deltaTime / 16.67));
+          } else {
+            defender.stamina = Math.max(0, defender.stamina - 0.1 * (deltaTime / 16.67));
+          }
+          
+          // Difficulty-based AI behavior
+          const aiAccuracy = Math.min(0.9, 0.3 + (newState.difficultyLevel * 0.1)); // More accurate at higher levels
+          const aiSpeed = 1 + (newState.difficultyLevel * 0.2); // Faster at higher levels
+          
+          // Calculate effective speed
+          let staminaFactor = defender.stamina <= 0 ? 0.75 : 1;
+          let behindFactor = isBehindPlayer ? 0.6 : 1;
+          let effectiveSpeed = defender.speed * staminaFactor * behindFactor * aiSpeed;
+          
+          // Apply movement patterns (less predictable at higher difficulty)
+          let patternOffsetX = 0;
+          let patternOffsetY = 0;
+          
+          switch (defender.pattern) {
+            case 'zigzag':
+              patternOffsetX = Math.sin(defender.patternTimer * 0.1) * (30 / newState.difficultyLevel);
+              break;
+            case 'curved':
+              patternOffsetX = Math.cos(defender.patternTimer * 0.05) * (20 / newState.difficultyLevel);
+              patternOffsetY = Math.sin(defender.patternTimer * 0.08) * (10 / newState.difficultyLevel);
+              break;
+            case 'aggressive':
+              const aggressiveBoost = distance < 100 ? (1.2 + newState.difficultyLevel * 0.1) : 1;
+              patternOffsetX = Math.sin(defender.patternTimer * 0.15) * (15 / newState.difficultyLevel);
+              effectiveSpeed *= aggressiveBoost;
+              break;
+          }
+          
+          // AI tracking based on difficulty (imperfect at low levels)
+          if (distance > 5) {
+            const chaseSpeed = effectiveSpeed;
+            const accelerationFactor = Math.min(2, distance / 100);
+            
+            // Add inaccuracy at lower difficulty levels
+            const targetX = newState.player.x + patternOffsetX + (Math.random() - 0.5) * (100 * (1 - aiAccuracy));
+            const targetY = newState.player.y + patternOffsetY;
+            const adjustedDx = targetX - defender.x;
+            const adjustedDy = targetY - defender.y;
+            const adjustedDistance = Math.sqrt(adjustedDx * adjustedDx + adjustedDy * adjustedDy);
+            
+            if (adjustedDistance > 0) {
+              defender.x += (adjustedDx / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
+              defender.y += (adjustedDy / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
+            }
+          }
+          
+          // Independent field movement - defenders move with field regardless of player
+          // Field scrolling is completely separate from player movement
+          defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1) * (deltaTime / 16.67);
         }
-        
-        // Independent field movement - defenders move with field regardless of player
-        // Field scrolling is completely separate from player movement
-        defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1) * (deltaTime / 16.67);
         
         return defender;
       });
@@ -868,18 +1014,23 @@ const GameCanvas: React.FC = () => {
         return true;
       });
       
-      // Collision detection for defenders
-      const collision = newState.defenders.some(defender => {
-        const dx = defender.x - newState.player.x;
-        const dy = defender.y - newState.player.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < 20;
-      });
-      
-      if (collision) {
-        newState.isGameOver = true;
-        newState.isPlaying = false;
-        setTimeout(() => setGameOverModalOpen(true), 100);
+      // COLLISION DETECTION WITH JUMP INVULNERABILITY
+      if (!newState.player.isJumping) { // Player is invulnerable while jumping
+        const collision = newState.defenders.some(defender => {
+          const dx = defender.x - newState.player.x;
+          const dy = defender.y - newState.player.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Diving defenders have extended collision range
+          const collisionDistance = defender.isDiving ? 25 : 20;
+          return distance < collisionDistance;
+        });
+        
+        if (collision) {
+          newState.isGameOver = true;
+          newState.isPlaying = false;
+          setTimeout(() => setGameOverModalOpen(true), 100);
+        }
       }
       
       return newState;
@@ -966,7 +1117,33 @@ const GameCanvas: React.FC = () => {
     }));
   };
 
-  // Touch handlers
+  // JUMP MECHANIC - Right-click or two-finger tap to jump
+  const handleJump = () => {
+    const currentTime = Date.now();
+    setGameState(prevState => {
+      // Check cooldown (2 seconds)
+      if (currentTime < prevState.player.jumpCooldownEnd) {
+        return prevState; // Still on cooldown
+      }
+      
+      // Already jumping
+      if (prevState.player.isJumping) {
+        return prevState;
+      }
+      
+      return {
+        ...prevState,
+        player: {
+          ...prevState.player,
+          isJumping: true,
+          jumpStartTime: currentTime,
+          jumpCooldownEnd: currentTime + 2000 // 2 second cooldown
+        }
+      };
+    });
+  };
+
+  // Touch handlers with two-finger tap jump
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     if (gameState.isGameOver) {
@@ -978,11 +1155,16 @@ const GameCanvas: React.FC = () => {
       setGameState(prev => ({ ...prev, isPlaying: true }));
     }
     
+    // TWO-FINGER TAP JUMP
+    if (e.touches.length >= 2) {
+      handleJump();
+      return;
+    }
+    
     const pos = getInputPosition(e);
     if (!pos) return;
     
     updatePlayerPosition(pos.x, pos.y);
-        // Update player target positions (field scrolling remains independent)
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -1000,7 +1182,7 @@ const GameCanvas: React.FC = () => {
     touchStartRef.current = null;
   };
 
-  // Mouse handlers
+  // Mouse handlers with right-click jump
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     if (gameState.isGameOver) {
@@ -1010,6 +1192,12 @@ const GameCanvas: React.FC = () => {
     
     if (!gameState.isPlaying) {
       setGameState(prev => ({ ...prev, isPlaying: true }));
+    }
+    
+    // RIGHT-CLICK JUMP
+    if (e.button === 2) { // Right mouse button
+      handleJump();
+      return;
     }
     
     const pos = getInputPosition(e);
@@ -1037,6 +1225,11 @@ const GameCanvas: React.FC = () => {
   const handleMouseLeave = (e: React.MouseEvent) => {
     e.preventDefault();
     mouseDownRef.current = false;
+  };
+
+  // Right-click context menu prevention
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
   };
 
   // Initialize pools and game on mount
@@ -1125,12 +1318,13 @@ const GameCanvas: React.FC = () => {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
+              onContextMenu={handleContextMenu}
             />
           </div>
           
           <div className="mt-4 text-center">
             <p className="text-foreground/70 text-sm">
-              Drag or click to move • Collect ⚡ for stamina • Avoid defenders
+              Drag to move • Right-click or two-finger tap to JUMP • Collect ⚡ for stamina
             </p>
             <p className="text-foreground/50 text-xs mt-1">
               +10 coins every 1000 yards
