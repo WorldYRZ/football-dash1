@@ -852,6 +852,7 @@ const GameCanvas: React.FC = () => {
           defender.isDiving = true;
           defender.hasDived = true; // Mark as having attempted dive
           defender.diveStartTime = currentTime;
+          defender.stamina = 0; // Lose all stamina when diving
           // Target position AHEAD of player for forward lunge
           defender.diveTargetX = newState.player.x;
           defender.diveTargetY = newState.player.y - 40; // Dive forward past player position
@@ -862,9 +863,8 @@ const GameCanvas: React.FC = () => {
           const diveProgress = Math.min(1, (currentTime - defender.diveStartTime) / 600); // 0.6 second dive
           
           if (diveProgress >= 1) {
-            // DIVE MISSED - Remove defender from game
-            returnDefenderToPool(defender.id);
-            return null; // Mark for removal
+            // DIVE COMPLETED - Continue playing but exhausted
+            defender.isDiving = false;
           } else {
             // SMOOTH FORWARD DIVE MOTION
             const diveSpeed = 6; // Fast forward dive speed
