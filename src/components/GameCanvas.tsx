@@ -3,6 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useGame } from '@/hooks/useGame';
 import GameOverModal from './GameOverModal';
+import { AILearningSystem } from '@/lib/aiLearning';
 
 interface GameState {
   player: { 
@@ -73,6 +74,7 @@ const GameCanvas: React.FC = () => {
   const animationRef = useRef<number>();
   const touchStartRef = useRef<TouchPos | null>(null);
   const mouseDownRef = useRef<boolean>(false);
+  const aiLearningRef = useRef<AILearningSystem>(new AILearningSystem());
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const { submitScore } = useGame();
@@ -670,7 +672,7 @@ const GameCanvas: React.FC = () => {
     
   };
 
-  // High-performance Subway Surfers-style update system
+  // High-performance Subway Surfers-style update system with AI Learning
   const updateGame = useCallback(() => {
     if (gameState.isGameOver || gameState.isPaused || !gameState.isPlaying) return;
 
@@ -678,6 +680,19 @@ const GameCanvas: React.FC = () => {
       const currentTime = Date.now();
       const deltaTime = Math.min(currentTime - prevState.lastFrameTime, 16.67); // Cap at 60fps
       const newState = { ...prevState, lastFrameTime: currentTime, deltaTime };
+      
+      // Track player movement for AI learning
+      aiLearningRef.current.trackPlayerMovement(
+        prevState.player.x, 
+        prevState.player.y, 
+        currentTime
+      );
+      
+      // Get adaptive AI parameters based on learned behavior
+      const aiParams = aiLearningRef.current.getAdaptiveAIParams(
+        prevState.score, 
+        currentTime - prevState.gameStartTime
+      );
       
       // Update game timer
       newState.gameElapsedTime = Date.now() - newState.gameStartTime;
@@ -891,44 +906,59 @@ const GameCanvas: React.FC = () => {
             defender.stamina = Math.max(0, defender.stamina - 0.1 * (deltaTime / 16.67));
           }
           
-          // Difficulty-based AI behavior
-          const aiAccuracy = Math.min(0.9, 0.3 + (newState.difficultyLevel * 0.1)); // More accurate at higher levels
-          const aiSpeed = 1 + (newState.difficultyLevel * 0.2); // Faster at higher levels
+          // Enhanced AI behavior with machine learning adaptation
+          const baseAccuracy = Math.min(0.9, 0.3 + (newState.difficultyLevel * 0.1));
+          const aiAccuracy = Math.min(0.95, baseAccuracy * aiParams.predictiveAccuracy);
+          const aiSpeed = (1 + (newState.difficultyLevel * 0.2)) * aiParams.difficultyMultiplier;
           
-          // Calculate effective speed - 50% speed reduction when behind player
+          // Calculate effective speed with adaptive factors
           let staminaFactor = defender.stamina <= 0 ? 0.75 : 1;
-          let behindFactor = isBehindPlayer ? 0.5 : 1; // 50% speed reduction when behind
+          let behindFactor = isBehindPlayer ? 0.5 : 1;
           let effectiveSpeed = defender.speed * staminaFactor * behindFactor * aiSpeed;
           
-          // Apply movement patterns (less predictable at higher difficulty)
+          // Apply adaptive movement patterns based on learned player behavior
           let patternOffsetX = 0;
           let patternOffsetY = 0;
           
+          // Use learned patterns to adapt AI behavior
+          const adaptedPatterns = aiParams.adaptedPatterns;
+          if (adaptedPatterns.includes('block_left') && newState.player.x < 150) {
+            patternOffsetX = 20; // Move to block left side
+          } else if (adaptedPatterns.includes('block_right') && newState.player.x > 250) {
+            patternOffsetX = -20; // Move to block right side
+          }
+          
           switch (defender.pattern) {
             case 'zigzag':
-              patternOffsetX = Math.sin(defender.patternTimer * 0.1) * (30 / newState.difficultyLevel);
+              patternOffsetX += Math.sin(defender.patternTimer * 0.1) * (30 / newState.difficultyLevel);
               break;
             case 'curved':
-              patternOffsetX = Math.cos(defender.patternTimer * 0.05) * (20 / newState.difficultyLevel);
-              patternOffsetY = Math.sin(defender.patternTimer * 0.08) * (10 / newState.difficultyLevel);
+              patternOffsetX += Math.cos(defender.patternTimer * 0.05) * (20 / newState.difficultyLevel);
+              patternOffsetY += Math.sin(defender.patternTimer * 0.08) * (10 / newState.difficultyLevel);
               break;
             case 'aggressive':
               const aggressiveBoost = distance < 100 ? (1.2 + newState.difficultyLevel * 0.1) : 1;
-              patternOffsetX = Math.sin(defender.patternTimer * 0.15) * (15 / newState.difficultyLevel);
+              patternOffsetX += Math.sin(defender.patternTimer * 0.15) * (15 / newState.difficultyLevel);
               effectiveSpeed *= aggressiveBoost;
               break;
           }
           
-          // AI tracking based on difficulty (imperfect at low levels)
+          // AI tracking with predictive capabilities
           if (distance > 5) {
             const chaseSpeed = effectiveSpeed;
             const accelerationFactor = Math.min(2, distance / 100);
             
-            // Add inaccuracy at lower difficulty levels
-            const targetX = newState.player.x + patternOffsetX + (Math.random() - 0.5) * (100 * (1 - aiAccuracy));
-            const targetY = newState.player.y + patternOffsetY;
-            const adjustedDx = targetX - defender.x;
-            const adjustedDy = targetY - defender.y;
+            // Use machine learning prediction instead of current position
+            const prediction = aiParams.targetPrediction;
+            const targetX = prediction.x + patternOffsetX;
+            const targetY = prediction.y + patternOffsetY;
+            
+            // Add adaptive inaccuracy
+            const inaccuracyX = (Math.random() - 0.5) * (100 * (1 - aiAccuracy));
+            const inaccuracyY = (Math.random() - 0.5) * (10 * (1 - aiAccuracy));
+            
+            const adjustedDx = targetX - defender.x + inaccuracyX;
+            const adjustedDy = targetY - defender.y + inaccuracyY;
             const adjustedDistance = Math.sqrt(adjustedDx * adjustedDx + adjustedDy * adjustedDy);
             
             if (adjustedDistance > 0) {
@@ -943,16 +973,27 @@ const GameCanvas: React.FC = () => {
         }
         
         
-        // SPAWN REINFORCEMENTS - when active player gets ahead
+        // ADAPTIVE SPAWN REINFORCEMENTS - Enhanced with machine learning
         const wasBehind = defender.y < newState.player.y; // Defender was ahead of player
         const playerNowAhead = defender.y > newState.player.y + 20; // Player now ahead with buffer
         
         if (wasBehind && playerNowAhead && Math.random() < 0.8) {
-          const numberOfNewDefenders = Math.floor(Math.random() * 6) + 1; // Spawn 1-6 defenders
+          // Use adaptive spawn rate from AI learning system
+          const spawnRate = newState.score >= 500 ? aiParams.spawnRate : Math.floor(Math.random() * 6) + 1;
+          const numberOfNewDefenders = Math.min(spawnRate, 10); // Cap at 10 defenders
           
           for (let i = 0; i < numberOfNewDefenders; i++) {
-            const speedVariation = 1 + (newState.difficultyLevel * 0.3) + Math.random() * 0.5;
-            const spawnX = Math.random() * (canvasWidth - 40) + 20;
+            const speedVariation = aiParams.difficultyMultiplier * (1 + (newState.difficultyLevel * 0.3) + Math.random() * 0.5);
+            
+            // Adaptive positioning - try to block player's predicted path
+            let spawnX = Math.random() * (canvasWidth - 40) + 20;
+            if (aiParams.blockingBehavior && newState.collectibles.length > 0) {
+              const blockingPositions = aiLearningRef.current.getCollectibleBlockingPositions(newState.collectibles);
+              if (blockingPositions.length > 0) {
+                spawnX = blockingPositions[i % blockingPositions.length].x;
+              }
+            }
+            
             const spawnY = -30 - (i * 25); // Stagger spawn positions
             
             const newDefender = getDefenderFromPool(spawnX, spawnY, 1.2 * speedVariation);
@@ -1063,13 +1104,21 @@ const GameCanvas: React.FC = () => {
         newState.collectibles.push(newCollectible);
       }
       
-      // Collision detection for collectibles
+      // Collision detection for collectibles with AI learning tracking
       newState.collectibles = newState.collectibles.filter(item => {
         const dx = item.x - newState.player.x;
         const dy = item.y - newState.player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < 25) {
+          // Track collectible collection for AI learning
+          aiLearningRef.current.trackCollectibleCollection(
+            item.x, 
+            item.y, 
+            item.type, 
+            currentTime
+          );
+          
           if (item.type === 'lightning') {
             newState.player.stamina = Math.min(100, newState.player.stamina + 30);
           } else {
@@ -1184,12 +1233,14 @@ const GameCanvas: React.FC = () => {
     }));
   };
 
-  // JUMP MECHANIC - Double-tap or right-click for forward leap
+  // JUMP MECHANIC - Double-tap or right-click for forward leap with AI tracking
   const handleJump = () => {
     const currentTime = Date.now();
     setGameState(prevState => {
       // Check if stamina is below 5% - can't jump
       if (prevState.player.stamina < 5) {
+        // Track failed jump attempt for AI learning
+        aiLearningRef.current.trackPlayerJump(currentTime, false);
         return prevState;
       }
       
@@ -1202,6 +1253,9 @@ const GameCanvas: React.FC = () => {
       if (prevState.player.isJumping) {
         return prevState;
       }
+      
+      // Track successful jump for AI learning
+      aiLearningRef.current.trackPlayerJump(currentTime, true);
       
       // Deduct 10% stamina on jump
       const newStamina = Math.max(0, prevState.player.stamina - 10);
