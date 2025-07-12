@@ -74,6 +74,8 @@ const GameCanvas: React.FC = () => {
   const animationRef = useRef<number>();
   const touchStartRef = useRef<TouchPos | null>(null);
   const mouseDownRef = useRef<boolean>(false);
+  const isDraggingRef = useRef<boolean>(false);
+  const lastMoveTimeRef = useRef<number>(0);
   const aiLearningRef = useRef<AILearningSystem>(new AILearningSystem());
   const { toast } = useToast();
   const { user, profile } = useAuth();
@@ -807,20 +809,26 @@ const GameCanvas: React.FC = () => {
       
       // Performance-optimized stamina system with movement speed and jumping mechanics
       
-      // Calculate player movement speed for stamina drain
-      const currentPlayerX = newState.player.x;
-      const currentPlayerY = newState.player.y;
-      const previousPlayerX = prevState.player.x;
-      const previousPlayerY = prevState.player.y;
+      // Calculate player movement speed for stamina drain - only during continuous dragging
+      let movementSpeed = 0;
+      let movementSpeedMultiplier = 1;
       
-      const movementDistance = Math.sqrt(
-        Math.pow(currentPlayerX - previousPlayerX, 2) + 
-        Math.pow(currentPlayerY - previousPlayerY, 2)
-      );
-      
-      // Calculate movement speed (pixels per frame, normalized) with reasonable bounds
-      const movementSpeed = Math.min(movementDistance / (deltaTime / 16.67), 100); // Cap max speed to prevent extreme drain
-      const movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 300)); // Moderate sensitivity to movement speed
+      // Only calculate movement speed if player is actively dragging
+      if (isDraggingRef.current) {
+        const currentPlayerX = newState.player.x;
+        const currentPlayerY = newState.player.y;
+        const previousPlayerX = prevState.player.x;
+        const previousPlayerY = prevState.player.y;
+        
+        const movementDistance = Math.sqrt(
+          Math.pow(currentPlayerX - previousPlayerX, 2) + 
+          Math.pow(currentPlayerY - previousPlayerY, 2)
+        );
+        
+        // Calculate movement speed (pixels per frame, normalized) with reasonable bounds
+        movementSpeed = Math.min(movementDistance / (deltaTime / 16.67), 100); // Cap max speed to prevent extreme drain
+        movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 300)); // Moderate sensitivity to movement speed
+      }
       
       let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67) * movementSpeedMultiplier * 0.3; // 70% slower drain
       
@@ -1323,6 +1331,7 @@ const GameCanvas: React.FC = () => {
     const pos = getInputPosition(e);
     if (!pos) return;
     
+    isDraggingRef.current = false; // Start as not dragging, only dragging on move
     updatePlayerPosition(pos.x, pos.y);
   };
 
@@ -1333,11 +1342,13 @@ const GameCanvas: React.FC = () => {
     const pos = getInputPosition(e);
     if (!pos) return;
     
+    isDraggingRef.current = true; // Mark as dragging when touch moves
     updatePlayerPosition(pos.x, pos.y);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault();
+    isDraggingRef.current = false; // Stop dragging on touch end
     touchStartRef.current = null;
   };
 
@@ -1363,6 +1374,7 @@ const GameCanvas: React.FC = () => {
     if (!pos) return;
     
     mouseDownRef.current = true;
+    isDraggingRef.current = false; // Start as not dragging, only dragging on move
     updatePlayerPosition(pos.x, pos.y);
   };
 
@@ -1373,12 +1385,14 @@ const GameCanvas: React.FC = () => {
     const pos = getInputPosition(e);
     if (!pos) return;
     
+    isDraggingRef.current = true; // Mark as dragging when mouse moves
     updatePlayerPosition(pos.x, pos.y);
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
     e.preventDefault();
     mouseDownRef.current = false;
+    isDraggingRef.current = false; // Stop dragging on mouse up
   };
 
   const handleMouseLeave = (e: React.MouseEvent) => {
