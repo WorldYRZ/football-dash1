@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, UserProfile } from '@/lib/supabase'
+import { supabase, UserProfile, isSupabaseConfigured } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
 
 export const useAuth = () => {
@@ -11,6 +11,10 @@ export const useAuth = () => {
   const { toast } = useToast()
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false)
+      return
+    }
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
