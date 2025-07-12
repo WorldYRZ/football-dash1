@@ -1136,7 +1136,10 @@ const GameCanvas: React.FC = () => {
           );
           
           if (item.type === 'lightning') {
-            newState.player.stamina = Math.min(100, newState.player.stamina + 30);
+            // Restore 20%-60% of stamina randomly
+            const restorePercentage = 0.2 + Math.random() * 0.4; // Random between 20% and 60%
+            const staminaRestore = restorePercentage * 100;
+            newState.player.stamina = Math.min(100, newState.player.stamina + staminaRestore);
           } else {
             newState.coins += 1;
           }
