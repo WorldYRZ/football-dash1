@@ -459,17 +459,18 @@ const GameCanvas: React.FC = () => {
     ctx.shadowBlur = 0;
   };
 
-  // Draw defenders with top-down football player sprites, running animation, and diving
+  // Draw defenders with enhanced forward dive animations
   const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; pattern: string; id: number; isDiving: boolean; diveStartTime: number }>) => {
     defenders.forEach(defender => {
       const time = Date.now() / 120; // Slightly different animation speed for defenders
       const runCycle = Math.sin(time + defender.id) * 0.3; // Individual animation cycles
       
-      // DIVE ANIMATION - Calculate dive motion and visual state
+      // FORWARD DIVE ANIMATION - Calculate dive motion and visual state
       const currentTime = Date.now();
-      const diveProgress = defender.isDiving ? Math.min(1, (currentTime - defender.diveStartTime) / 600) : 0; // 0.6 second dive
-      const diveStretch = defender.isDiving ? 1 + diveProgress * 0.5 : 1; // Stretch during dive
-      const diveHeight = defender.isDiving ? Math.sin(diveProgress * Math.PI) * 8 : 0; // Slight lift during dive
+      const diveProgress = defender.isDiving ? Math.min(1, (currentTime - defender.diveStartTime) / 600) : 0;
+      const diveStretch = defender.isDiving ? 1 + diveProgress * 0.8 : 1; // More dramatic stretch during forward dive
+      const diveHeight = defender.isDiving ? Math.sin(diveProgress * Math.PI) * 6 : 0; // Lower dive for forward lunge
+      const diveLean = defender.isDiving ? diveProgress * 0.5 : 0; // Forward lean during dive
       
       // Defender team colors (red team)
       const helmetColor = 'hsl(15, 80%, 45%)'; // Red helmet
@@ -477,11 +478,11 @@ const GameCanvas: React.FC = () => {
       const pantsColor = 'hsl(15, 50%, 30%)'; // Darker red pants
       const skinColor = 'hsl(30, 50%, 70%)'; // Skin tone
       
-      // Speed-based intensity effects + dive effects
+      // Forward dive visual effects + speed effects
       const speedIntensity = Math.min(15, defender.speed * 3);
       if (defender.isDiving) {
         ctx.shadowColor = 'hsl(0, 85%, 60%)'; // Intense red glow when diving
-        ctx.shadowBlur = 25;
+        ctx.shadowBlur = 30 + diveProgress * 20; // Increasing intensity during dive
       } else {
         ctx.shadowColor = helmetColor;
         ctx.shadowBlur = speedIntensity;
@@ -490,10 +491,22 @@ const GameCanvas: React.FC = () => {
       // Apply dive position offset and scaling
       const drawY = defender.y - diveHeight;
       
+      // FORWARD DIVE MOTION TRAILS
+      if (defender.isDiving) {
+        for (let i = 0; i < 5; i++) {
+          ctx.fillStyle = `hsla(0, 85%, 60%, ${0.5 - i * 0.1})`;
+          const trailOffset = i * 12; // Longer trails for forward motion
+          ctx.beginPath();
+          ctx.ellipse(defender.x, drawY + trailOffset, 6 - i, 10 - i, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      
       // Save context for dive transformation
       ctx.save();
       ctx.translate(defender.x, drawY);
-      ctx.scale(diveStretch, defender.isDiving ? 0.8 : 1); // Flatten during dive
+      ctx.rotate(diveLean); // Forward lean during dive
+      ctx.scale(diveStretch, defender.isDiving ? 0.7 : 1); // Flatten and stretch during forward dive
       ctx.translate(-defender.x, -drawY);
       
       // BODY (jersey) - oval shaped from top-down
@@ -502,44 +515,44 @@ const GameCanvas: React.FC = () => {
       ctx.ellipse(defender.x, drawY, 11, 15, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // ARMS - animated running motion (extended during dive)
-      const armMotion = defender.isDiving ? runCycle * 3 : runCycle * 7; // Reduced motion when diving
+      // ARMS - animated running motion (fully extended forward during dive)
+      const armMotion = defender.isDiving ? 0 : runCycle * 7; // No arm movement during dive
       ctx.fillStyle = skinColor;
       ctx.strokeStyle = jerseyColor;
       ctx.lineWidth = 2;
       
-      // Left arm (extended forward during dive)
+      // Left arm (fully extended forward during dive)
       ctx.beginPath();
-      const leftArmX = defender.isDiving ? defender.x - 12 : defender.x - 9;
-      const leftArmY = defender.isDiving ? drawY - 2 : drawY + armMotion;
-      ctx.ellipse(leftArmX, leftArmY, 3, defender.isDiving ? 9 : 7, defender.isDiving ? Math.PI * 0.3 : Math.PI * 0.1, 0, Math.PI * 2);
+      const leftArmX = defender.isDiving ? defender.x - 18 : defender.x - 9;
+      const leftArmY = defender.isDiving ? drawY - 8 : drawY + armMotion;
+      ctx.ellipse(leftArmX, leftArmY, 3, defender.isDiving ? 12 : 7, defender.isDiving ? Math.PI * 0.4 : Math.PI * 0.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       
-      // Right arm (extended forward during dive)
+      // Right arm (fully extended forward during dive)
       ctx.beginPath();
-      const rightArmX = defender.isDiving ? defender.x + 12 : defender.x + 9;
-      const rightArmY = defender.isDiving ? drawY - 2 : drawY - armMotion;
-      ctx.ellipse(rightArmX, rightArmY, 3, defender.isDiving ? 9 : 7, defender.isDiving ? -Math.PI * 0.3 : -Math.PI * 0.1, 0, Math.PI * 2);
+      const rightArmX = defender.isDiving ? defender.x + 18 : defender.x + 9;
+      const rightArmY = defender.isDiving ? drawY - 8 : drawY - armMotion;
+      ctx.ellipse(rightArmX, rightArmY, 3, defender.isDiving ? 12 : 7, defender.isDiving ? -Math.PI * 0.4 : -Math.PI * 0.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       
-      // LEGS - animated running motion (extended during dive)
+      // LEGS - animated running motion (streamlined during forward dive)
       ctx.fillStyle = pantsColor;
-      const legMotion = defender.isDiving ? runCycle * 2 : runCycle * 5;
+      const legMotion = defender.isDiving ? 0 : runCycle * 5; // Legs together during dive
       
-      // Left leg (extended backward during dive)
+      // Left leg (streamlined behind during dive)
       ctx.beginPath();
-      const leftLegX = defender.isDiving ? defender.x - 8 : defender.x - 5;
-      const leftLegY = defender.isDiving ? drawY + 12 : drawY + 7 + legMotion;
-      ctx.ellipse(leftLegX, leftLegY, defender.isDiving ? 4 : 3, defender.isDiving ? 12 : 9, 0, 0, Math.PI * 2);
+      const leftLegX = defender.isDiving ? defender.x - 3 : defender.x - 5;
+      const leftLegY = defender.isDiving ? drawY + 18 : drawY + 7 + legMotion;
+      ctx.ellipse(leftLegX, leftLegY, defender.isDiving ? 3 : 3, defender.isDiving ? 15 : 9, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Right leg (extended backward during dive)
+      // Right leg (streamlined behind during dive)
       ctx.beginPath();
-      const rightLegX = defender.isDiving ? defender.x + 8 : defender.x + 5;
-      const rightLegY = defender.isDiving ? drawY + 12 : drawY + 7 - legMotion;
-      ctx.ellipse(rightLegX, rightLegY, defender.isDiving ? 4 : 3, defender.isDiving ? 12 : 9, 0, 0, Math.PI * 2);
+      const rightLegX = defender.isDiving ? defender.x + 3 : defender.x + 5;
+      const rightLegY = defender.isDiving ? drawY + 18 : drawY + 7 - legMotion;
+      ctx.ellipse(rightLegX, rightLegY, defender.isDiving ? 3 : 3, defender.isDiving ? 15 : 9, 0, 0, Math.PI * 2);
       ctx.fill();
       
       // HELMET - red team colored with face mask
@@ -573,12 +586,22 @@ const GameCanvas: React.FC = () => {
       ctx.ellipse(defender.x + 7, drawY - 3, 5, 3, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Speed trail effect for fast defenders (enhanced during dive)
+      // Enhanced motion effects for forward diving defenders
       if (defender.speed > 2 || defender.isDiving) {
-        ctx.fillStyle = defender.isDiving ? 'hsla(15, 80%, 45%, 0.5)' : 'hsla(15, 80%, 45%, 0.3)';
+        ctx.fillStyle = defender.isDiving ? 'hsla(15, 80%, 45%, 0.6)' : 'hsla(15, 80%, 45%, 0.3)';
         ctx.beginPath();
-        ctx.ellipse(defender.x, drawY + 12, defender.isDiving ? 12 : 8, defender.isDiving ? 5 : 3, 0, 0, Math.PI * 2);
+        const trailLength = defender.isDiving ? 20 : 8;
+        const trailWidth = defender.isDiving ? 15 : 8;
+        ctx.ellipse(defender.x, drawY + 12, trailWidth, defender.isDiving ? 8 : 3, 0, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Additional forward dive trail
+        if (defender.isDiving) {
+          ctx.fillStyle = 'hsla(0, 85%, 60%, 0.4)';
+          ctx.beginPath();
+          ctx.ellipse(defender.x, drawY + 25, 12, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       
       // Restore context
@@ -862,31 +885,38 @@ const GameCanvas: React.FC = () => {
         // Check if defender is behind player
         const isBehindPlayer = defender.y > newState.player.y;
         
-        // DIVE MECHANICS - Check if defender should dive
+        // FORWARD DIVE MECHANICS - Check if defender should dive
         if (!defender.isDiving && distance < 50 && Math.random() < 0.08) { // 8% chance to dive when close
           defender.isDiving = true;
           defender.diveStartTime = currentTime;
+          // Target position AHEAD of player for forward lunge
           defender.diveTargetX = newState.player.x;
-          defender.diveTargetY = newState.player.y;
+          defender.diveTargetY = newState.player.y - 40; // Dive forward past player position
         }
         
-        // Update dive state
+        // Update dive state with forward momentum
         if (defender.isDiving) {
           const diveProgress = Math.min(1, (currentTime - defender.diveStartTime) / 600); // 0.6 second dive
           
           if (diveProgress >= 1) {
             defender.isDiving = false; // End dive
+            // Brief recovery pause after missing dive
+            defender.stamina = Math.max(0, defender.stamina - 30); // Stamina penalty for missing
           } else {
-            // Dive towards target position
-            const diveSpeed = 4; // Fast dive speed
+            // AGGRESSIVE FORWARD DIVE MOTION
+            const diveSpeed = 6; // Fast forward dive speed
             const targetDx = defender.diveTargetX - defender.x;
             const targetDy = defender.diveTargetY - defender.y;
             const targetDistance = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
             
-            if (targetDistance > 0) {
+            if (targetDistance > 5) {
+              // Move toward dive target with forward momentum
               defender.x += (targetDx / targetDistance) * diveSpeed * (deltaTime / 16.67);
               defender.y += (targetDy / targetDistance) * diveSpeed * (deltaTime / 16.67);
             }
+            
+            // Additional forward field momentum during dive
+            defender.y += newState.gameSpeed * 1.5 * (deltaTime / 16.67);
           }
         } else {
           // Normal AI movement when not diving
