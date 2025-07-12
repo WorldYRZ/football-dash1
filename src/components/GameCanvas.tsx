@@ -847,9 +847,9 @@ const GameCanvas: React.FC = () => {
           const aiAccuracy = Math.min(0.9, 0.3 + (newState.difficultyLevel * 0.1)); // More accurate at higher levels
           const aiSpeed = 1 + (newState.difficultyLevel * 0.2); // Faster at higher levels
           
-          // Calculate effective speed
+          // Calculate effective speed - 50% speed reduction when behind player
           let staminaFactor = defender.stamina <= 0 ? 0.75 : 1;
-          let behindFactor = isBehindPlayer ? 0.6 : 1;
+          let behindFactor = isBehindPlayer ? 0.5 : 1; // 50% speed reduction when behind
           let effectiveSpeed = defender.speed * staminaFactor * behindFactor * aiSpeed;
           
           // Apply movement patterns (less predictable at higher difficulty)
@@ -950,8 +950,8 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Improved AI despawning - remove defenders far off screen to prevent memory issues
-      const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 150 && d.y > -150);
+      // Remove defenders off-canvas for despawning
+      const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 50 && d.y > -50);
       
       // Return unused defenders to pool for memory efficiency
       newState.defenders.filter(d => d.y >= canvasHeight + 150 || d.y <= -150)
