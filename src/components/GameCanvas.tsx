@@ -305,12 +305,13 @@ const GameCanvas: React.FC = () => {
     const time = Date.now() / 100; // Animation timer
     const runCycle = Math.sin(time) * 0.3; // Running animation cycle
     
-    // JUMP ANIMATION - Calculate jump height and animation state
+    // FORWARD LEAP ANIMATION - Calculate jump height and forward motion
     const currentTime = Date.now();
-    const jumpProgress = player.isJumping ? Math.min(1, (currentTime - player.jumpStartTime) / 500) : 0;
-    const jumpHeight = player.isJumping ? Math.sin(jumpProgress * Math.PI) * 15 : 0; // Arc motion
-    const jumpScale = player.isJumping ? 1 + jumpHeight * 0.02 : 1; // Slight scale effect
-    const shadowOffset = jumpHeight * 0.8; // Shadow moves as player jumps
+    const jumpProgress = player.isJumping ? Math.min(1, (currentTime - player.jumpStartTime) / 600) : 0;
+    const jumpHeight = player.isJumping ? Math.sin(jumpProgress * Math.PI) * 20 : 0; // Higher arc for forward leap
+    const jumpScale = player.isJumping ? 1 + jumpHeight * 0.03 : 1; // More dramatic scaling
+    const shadowOffset = jumpHeight * 1.2; // More pronounced shadow separation
+    const forwardLean = player.isJumping ? jumpProgress * 0.3 : 0; // Forward leaning during jump
     
     // Player team colors (blue team)
     const helmetColor = 'hsl(220, 85%, 55%)'; // Blue helmet
@@ -322,10 +323,10 @@ const GameCanvas: React.FC = () => {
     const staminaFactor = player.stamina / 100;
     const glowIntensity = staminaFactor > 0.5 ? 15 : staminaFactor > 0.25 ? 8 : 0;
     
-    // JUMP VISUAL EFFECTS
+    // FORWARD LEAP VISUAL EFFECTS
     if (player.isJumping) {
       ctx.shadowColor = 'hsl(60, 100%, 70%)'; // Golden glow when jumping
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 25 + jumpHeight; // Dynamic glow intensity
     } else if (glowIntensity > 0) {
       ctx.shadowColor = helmetColor;
       ctx.shadowBlur = glowIntensity;
@@ -335,17 +336,30 @@ const GameCanvas: React.FC = () => {
     // Apply jump position offset
     const drawY = player.y - jumpHeight;
     
-    // Draw player shadow on ground (separated during jump)
+    // MOTION TRAIL for forward leap
+    if (player.isJumping) {
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = `hsla(60, 100%, 70%, ${0.4 - i * 0.1})`;
+        const trailOffset = i * 8;
+        ctx.beginPath();
+        ctx.ellipse(player.x, drawY + trailOffset, 6 - i, 8 - i, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Draw player shadow on ground (moves forward during jump)
     if (player.isJumping) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       ctx.beginPath();
-      ctx.ellipse(player.x, player.y + shadowOffset, 8 - jumpHeight * 0.3, 4 - jumpHeight * 0.2, 0, 0, Math.PI * 2);
+      const shadowStretch = 1 + jumpHeight * 0.1; // Shadow stretches during leap
+      ctx.ellipse(player.x, player.y + shadowOffset, 8 * shadowStretch, 4, 0, 0, Math.PI * 2);
       ctx.fill();
     }
     
     // Save context for transformations
     ctx.save();
     ctx.translate(player.x, drawY);
+    ctx.rotate(forwardLean); // Slight forward lean during leap
     ctx.scale(jumpScale, jumpScale);
     ctx.translate(-player.x, -drawY);
     
@@ -355,36 +369,40 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(player.x, drawY, 12, 16, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // ARMS - animated running motion (tucked when jumping)
-    const armAnimation = player.isJumping ? runCycle * 4 : runCycle * 8; // Reduced motion when jumping
+    // ARMS - animated running motion (extended during forward leap)
+    const armMotion = player.isJumping ? runCycle * 3 + forwardLean * 10 : runCycle * 8;
     ctx.fillStyle = skinColor;
     ctx.strokeStyle = jerseyColor;
     ctx.lineWidth = 2;
     
-    // Left arm
+    // Left arm (reaches forward during leap)
     ctx.beginPath();
-    ctx.ellipse(player.x - 10, drawY + armAnimation, 3, player.isJumping ? 6 : 8, Math.PI * 0.1, 0, Math.PI * 2);
+    const leftArmExtension = player.isJumping ? 2 : 0;
+    ctx.ellipse(player.x - 10 - leftArmExtension, drawY + armMotion - leftArmExtension, 3, player.isJumping ? 9 : 8, Math.PI * 0.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     
-    // Right arm  
+    // Right arm (reaches forward during leap)
     ctx.beginPath();
-    ctx.ellipse(player.x + 10, drawY - armAnimation, 3, player.isJumping ? 6 : 8, -Math.PI * 0.1, 0, Math.PI * 2);
+    const rightArmExtension = player.isJumping ? 2 : 0;
+    ctx.ellipse(player.x + 10 + rightArmExtension, drawY - armMotion - rightArmExtension, 3, player.isJumping ? 9 : 8, -Math.PI * 0.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     
-    // LEGS - animated running motion (tucked when jumping)
+    // LEGS - animated running motion (extended during forward leap)
     ctx.fillStyle = pantsColor;
-    const legAnimation = player.isJumping ? runCycle * 3 : runCycle * 6; // Legs more tucked when jumping
+    const legMotion = player.isJumping ? runCycle * 2 + forwardLean * 8 : runCycle * 6;
     
-    // Left leg
+    // Left leg (extends back during leap)
     ctx.beginPath();
-    ctx.ellipse(player.x - 6, drawY + 8 + legAnimation, 4, player.isJumping ? 8 : 10, 0, 0, Math.PI * 2);
+    const leftLegExtension = player.isJumping ? 3 : 0;
+    ctx.ellipse(player.x - 6, drawY + 8 + legMotion + leftLegExtension, 4, player.isJumping ? 12 : 10, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // Right leg
+    // Right leg (extends forward during leap)
     ctx.beginPath();
-    ctx.ellipse(player.x + 6, drawY + 8 - legAnimation, 4, player.isJumping ? 8 : 10, 0, 0, Math.PI * 2);
+    const rightLegExtension = player.isJumping ? 3 : 0;
+    ctx.ellipse(player.x + 6, drawY + 8 - legMotion - rightLegExtension, 4, player.isJumping ? 12 : 10, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // HELMET - team colored with face mask
@@ -736,13 +754,27 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // JUMP MECHANICS - Handle player jumping state
+      // JUMP MECHANICS WITH FORWARD MOMENTUM
       
-      // Update jump state
+      // Update jump state with forward movement
       if (newState.player.isJumping) {
-        const jumpDuration = 500; // 0.5 seconds
-        if (currentTime - newState.player.jumpStartTime > jumpDuration) {
+        const jumpDuration = 600; // 0.6 seconds for full jump
+        const jumpProgress = Math.min(1, (currentTime - newState.player.jumpStartTime) / jumpDuration);
+        
+        if (jumpProgress >= 1) {
           newState.player.isJumping = false;
+        } else {
+          // FORWARD MOMENTUM during jump - move player forward
+          const forwardDistance = 60; // Total forward distance during jump
+          const forwardSpeed = (forwardDistance / jumpDuration) * (deltaTime / 16.67);
+          
+          // Move player upward on screen (negative Y) during jump
+          newState.player.y -= forwardSpeed;
+          newState.player.targetY -= forwardSpeed;
+          
+          // Keep player within boundaries
+          newState.player.y = Math.max(25, newState.player.y);
+          newState.player.targetY = Math.max(25, newState.player.targetY);
         }
       }
       
@@ -1143,11 +1175,11 @@ const GameCanvas: React.FC = () => {
     }));
   };
 
-  // JUMP MECHANIC - Double-tap or right-click to jump
+  // JUMP MECHANIC - Double-tap or right-click for forward leap
   const handleJump = () => {
     const currentTime = Date.now();
     setGameState(prevState => {
-      // Check cooldown (2 seconds)
+      // Check cooldown (1.5 seconds for balanced gameplay)
       if (currentTime < prevState.player.jumpCooldownEnd) {
         return prevState; // Still on cooldown
       }
@@ -1163,7 +1195,7 @@ const GameCanvas: React.FC = () => {
           ...prevState.player,
           isJumping: true,
           jumpStartTime: currentTime,
-          jumpCooldownEnd: currentTime + 2000 // 2 second cooldown
+          jumpCooldownEnd: currentTime + 1500 // 1.5 second cooldown
         }
       };
     });
@@ -1356,7 +1388,7 @@ const GameCanvas: React.FC = () => {
           
           <div className="mt-4 text-center">
             <p className="text-foreground/70 text-sm">
-              Drag to move • Double-tap/Right-click to JUMP • Dodge diving defenders!
+              Drag to move • Double-tap/Right-click for FORWARD LEAP • Time your jumps to avoid diving defenders!
             </p>
             <p className="text-foreground/50 text-xs mt-1">
               +10 coins every 1000 yards
