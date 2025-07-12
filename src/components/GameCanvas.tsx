@@ -120,7 +120,7 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Draw field with improved yard lines and side markers
+  // Draw field with improved yard lines and stationary side markers
   const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -139,20 +139,19 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Yard lines with proper synchronization
+    // Yard lines with doubled spacing (120 pixels = 10 yards)
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
     
-    // Calculate yards per pixel for proper synchronization
-    const yardsPerPixel = 1; // 1 yard per pixel movement
-    const pixelsPerYardLine = 60; // Every 60 pixels = 10 yards
+    const pixelsPerYardLine = 120; // Doubled from 60 to 120 pixels per 10 yards
+    const yardsPerPixel = 10 / pixelsPerYardLine; // 10 yards per 120 pixels
     
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 10; i++) {
       const y = (i * pixelsPerYardLine + (offset % pixelsPerYardLine)) % (canvasHeight + pixelsPerYardLine);
       
       if (y > -10 && y < canvasHeight + 10) {
         // Calculate the actual yard number for this line
-        const yardLineNumber = Math.floor((currentYards + (canvasHeight - y) / 6)) 
+        const yardLineNumber = Math.floor(currentYards + (canvasHeight - y) * yardsPerPixel);
         const roundedYard = Math.floor(yardLineNumber / 10) * 10;
         
         // Draw yard line
@@ -161,32 +160,39 @@ const GameCanvas: React.FC = () => {
         ctx.lineTo(canvasWidth - 20, y);
         ctx.stroke();
 
-        // Draw yard numbers on both sides every 10 yards
-        if (roundedYard % 10 === 0 && roundedYard > 0) {
+        // Draw yard numbers on both sides every 10 yards - STATIONARY
+        if (roundedYard % 10 === 0 && roundedYard >= 0) {
           ctx.fillStyle = 'hsl(0, 0%, 95%)';
           ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
           
-          // Left side yard marker
-          ctx.save();
-          ctx.translate(35, y);
-          ctx.rotate(-Math.PI / 2);
-          ctx.fillText(roundedYard.toString(), 0, 0);
-          ctx.restore();
+          // Calculate stationary positions based on current player position
+          const baseY = canvasHeight - 100; // Player's Y position
+          const relativeY = baseY + (currentYards - roundedYard) * (120 / 10); // 12 pixels per yard
           
-          // Right side yard marker
-          ctx.save();
-          ctx.translate(canvasWidth - 35, y);
-          ctx.rotate(Math.PI / 2);
-          ctx.fillText(roundedYard.toString(), 0, 0);
-          ctx.restore();
-          
-          // Center field marker for major yard lines
-          if (roundedYard % 50 === 0) {
-            ctx.fillStyle = 'hsl(0, 0%, 85%)';
-            ctx.font = 'bold 20px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(roundedYard.toString(), canvasWidth / 2, y - 5);
+          // Only draw if in visible range
+          if (relativeY > 0 && relativeY < canvasHeight) {
+            // Left side yard marker
+            ctx.save();
+            ctx.translate(35, relativeY);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText(roundedYard.toString(), 0, 0);
+            ctx.restore();
+            
+            // Right side yard marker
+            ctx.save();
+            ctx.translate(canvasWidth - 35, relativeY);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillText(roundedYard.toString(), 0, 0);
+            ctx.restore();
+            
+            // Center field marker for major yard lines
+            if (roundedYard % 50 === 0) {
+              ctx.fillStyle = 'hsl(0, 0%, 85%)';
+              ctx.font = 'bold 20px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(roundedYard.toString(), canvasWidth / 2, relativeY - 5);
+            }
           }
         }
       }
@@ -333,8 +339,8 @@ const GameCanvas: React.FC = () => {
       // Update field scroll (consistent downward movement)
       newState.fieldOffset += newState.gameSpeed;
       
-      // Update score with proper yard calculation (6 pixels = 1 yard)
-      newState.score += Math.floor(newState.gameSpeed / 6);
+      // Update score with proper yard calculation (12 pixels = 1 yard to match field)
+      newState.score += Math.floor(newState.gameSpeed / 12);
       
       // Stamina depletion (affected by speed)
       const staminaDrain = 0.08 + (newState.gameSpeed - 2) * 0.02;
