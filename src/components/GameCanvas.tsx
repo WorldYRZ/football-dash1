@@ -356,18 +356,12 @@ const GameCanvas: React.FC = () => {
     ctx.lineWidth = 1;
     ctx.strokeRect(barX, barY, barWidth, barHeight);
     
-    // Score and game info
+    // Score and coins only (removed permanent difficulty indicators)
     ctx.fillStyle = 'hsl(0, 0%, 95%)';
     ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'left';
     ctx.fillText(`Yards: ${gameState.score}`, 20, 50);
     ctx.fillText(`Coins: ${gameState.coins}`, 20, 75);
-    
-    // Difficulty indicator
-    ctx.font = 'bold 14px Arial';
-    ctx.fillStyle = 'hsl(45, 100%, 70%)';
-    ctx.fillText(`Level: ${gameState.difficultyLevel}`, 20, 95);
-    ctx.fillText(`Time: ${Math.floor(gameState.gameElapsedTime / 1000)}s`, 120, 95);
     
     // Achievement notification
     if (gameState.showAchievement && gameState.currentAchievement) {
@@ -392,20 +386,24 @@ const GameCanvas: React.FC = () => {
       ctx.fillText(`+${gameState.currentAchievement.coins} Coins`, achX, achY + 25);
     }
     
-    // Difficulty increase flash effect
+    // Immersive difficulty increase flash effect (Subway Surfers style)
     const timeSinceLastIncrease = gameState.gameElapsedTime - gameState.lastDifficultyIncrease;
     if (timeSinceLastIncrease < 2000) { // Flash for 2 seconds
       const flashAlpha = Math.max(0, 1 - (timeSinceLastIncrease / 2000));
       ctx.fillStyle = `rgba(255, 69, 0, ${flashAlpha * 0.3})`;
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
       
-      // Difficulty increase text
+      // Center pop-up notification (no level numbers)
       if (timeSinceLastIncrease < 1500) {
         ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
         ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`DIFFICULTY UP!`, canvasWidth / 2, canvasHeight / 2 - 50);
-        ctx.fillText(`Level ${gameState.difficultyLevel}`, canvasWidth / 2, canvasHeight / 2 - 20);
+        
+        // Dynamic messages based on what increased
+        const messages = ['SPEED UP!', 'MORE DEFENDERS!', 'DIFFICULTY UP!'];
+        const message = messages[gameState.difficultyLevel % messages.length] || 'SPEED UP!';
+        ctx.fillText(message, canvasWidth / 2, canvasHeight / 2 - 50);
+        ctx.fillText('Stay Alert!', canvasWidth / 2, canvasHeight / 2 - 20);
       }
     }
   };
@@ -459,10 +457,10 @@ const GameCanvas: React.FC = () => {
       if (newDifficultyLevel > newState.difficultyLevel) {
         newState.lastDifficultyIncrease = newState.gameElapsedTime;
         
-        // Show toast notification for difficulty increase
+        // Show immersive toast notification (no level numbers)
         toast({
-          title: "Difficulty Increased!",
-          description: `Level ${newDifficultyLevel} - More defenders incoming!`,
+          title: "Speed Increased!",
+          description: "More defenders incoming - stay sharp!",
           duration: 2000,
         });
       }
