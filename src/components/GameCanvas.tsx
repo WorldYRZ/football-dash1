@@ -1,5 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useGame } from '@/hooks/useGame';
+import GameOverModal from './GameOverModal';
 
 interface GameState {
   player: { x: number; y: number; stamina: number };
@@ -23,6 +26,9 @@ const GameCanvas: React.FC = () => {
   const animationRef = useRef<number>();
   const touchStartRef = useRef<TouchPos | null>(null);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
+  const { submitScore } = useGame();
+  const [gameOverModalOpen, setGameOverModalOpen] = useState(false);
 
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 200, y: 500, stamina: 100 },
@@ -316,6 +322,8 @@ const GameCanvas: React.FC = () => {
       
       if (collision) {
         newState.isGameOver = true;
+        // Open game over modal instead of just setting game over
+        setTimeout(() => setGameOverModalOpen(true), 100);
       }
       
       // 100-yard celebration
@@ -376,7 +384,7 @@ const GameCanvas: React.FC = () => {
     const y = touch.clientY - rect.top;
     
     if (gameState.isGameOver) {
-      initializeGame();
+      setGameOverModalOpen(true);
       return;
     }
     
@@ -453,7 +461,20 @@ const GameCanvas: React.FC = () => {
         <p className="text-foreground/50 text-xs mt-1">
           +10 coins every 100 yards
         </p>
+        {profile && (
+          <p className="text-foreground/60 text-xs mt-2">
+            High Score: {profile.high_score.toLocaleString()} yards
+          </p>
+        )}
       </div>
+
+      <GameOverModal
+        open={gameOverModalOpen}
+        onOpenChange={setGameOverModalOpen}
+        score={gameState.score}
+        coins={gameState.coins}
+        onRestart={initializeGame}
+      />
     </div>
   );
 };

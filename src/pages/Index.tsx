@@ -1,4 +1,5 @@
 import GameCanvas from '@/components/GameCanvas';
+import GameNav from '@/components/GameNav';
 
 const Index = () => {
   return (
@@ -16,7 +17,10 @@ const Index = () => {
           </p>
         </div>
         
-        <GameCanvas />
+        <div className="flex flex-col items-center">
+          <GameNav />
+          <GameCanvas />
+        </div>
       </div>
     </div>
   );
