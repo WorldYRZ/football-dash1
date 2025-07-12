@@ -975,14 +975,8 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Remove defenders off-canvas for despawning
-      const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 50 && d.y > -50);
-      
-      // Return unused defenders to pool for memory efficiency
-      newState.defenders.filter(d => d.y >= canvasHeight + 150 || d.y <= -150)
-        .forEach(d => returnDefenderToPool(d.id));
-      
-      newState.defenders = visibleDefenders;
+      // Keep all defenders regardless of position
+      // No more off-canvas despawning
       newState.activeDefenderCount = newState.defenders.length;
       
       // Spawn defenders based on difficulty level and time
