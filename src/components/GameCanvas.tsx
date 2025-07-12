@@ -793,7 +793,7 @@ const GameCanvas: React.FC = () => {
           newState.player.isJumping = false;
         } else {
           // FORWARD MOMENTUM during jump - move player forward
-          const forwardDistance = 60; // Total forward distance during jump
+          const forwardDistance = 30; // Total forward distance during jump (reduced by 50%)
           const forwardSpeed = (forwardDistance / jumpDuration) * (deltaTime / 16.67);
           
           // Move player upward on screen (negative Y) during jump
