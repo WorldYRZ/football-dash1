@@ -777,7 +777,7 @@ const GameCanvas: React.FC = () => {
           newState.player.isJumping = false;
         } else {
           // FORWARD MOMENTUM during jump - move player forward
-          const forwardDistance = 50; // Five yards forward distance during jump
+          const forwardDistance = 25; // Player jumps 25 pixels forward
           const forwardSpeed = (forwardDistance / jumpDuration) * (deltaTime / 16.67);
           
           // Move player upward on screen (negative Y) during jump
@@ -868,9 +868,9 @@ const GameCanvas: React.FC = () => {
           defender.hasDived = true; // Mark as having attempted dive
           defender.diveStartTime = currentTime;
           defender.stamina = 0; // Lose all stamina when diving
-          // Target position AHEAD of player for forward lunge
+          // Target position for short-range dive (5 pixels max)
           defender.diveTargetX = newState.player.x;
-          defender.diveTargetY = newState.player.y - 40; // Dive forward past player position
+          defender.diveTargetY = newState.player.y - 5; // AI dives only 5 pixels forward
         }
         
         // Update dive state with smooth forward momentum
@@ -1129,20 +1129,20 @@ const GameCanvas: React.FC = () => {
         return true;
       });
       
-      // COLLISION DETECTION - Check for successful dive tackles
+      // TACKLE DETECTION - Player can be tackled if not jumping when defender dives
       if (!newState.player.isJumping) {
         const divingDefenders = newState.defenders.filter(d => d.isDiving);
-        const successfulDive = divingDefenders.some(defender => {
+        const successfulTackle = divingDefenders.some(defender => {
           const dx = defender.x - newState.player.x;
           const dy = defender.y - newState.player.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          // Successful dive collision range
-          return distance < 22;
+          // Tackle successful within defender's 5-pixel dive range
+          return distance < 15; // Slightly larger than 5 pixels for fair collision detection
         });
         
-        if (successfulDive) {
-          // SUCCESSFUL DIVE ENDS GAME IMMEDIATELY
+        if (successfulTackle) {
+          // PLAYER TACKLED - GAME OVER
           newState.isGameOver = true;
           newState.isPlaying = false;
           setTimeout(() => setGameOverModalOpen(true), 100);
