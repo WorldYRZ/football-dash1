@@ -644,6 +644,29 @@ const GameCanvas: React.FC = () => {
         }
       }
       
+      // DEFENDER BEHIND PLAYER SPAWN SYSTEM
+      // Check if any defender is behind the player and spawn additional defenders
+      const defendersBehindPlayer = newState.defenders.filter(d => d.y > newState.player.y + 30);
+      
+      if (defendersBehindPlayer.length > 0 && Math.random() < 0.15) { // 15% chance when defender is behind
+        const numberOfNewDefenders = Math.floor(Math.random() * 5) + 1; // Spawn 1-5 defenders
+        
+        for (let i = 0; i < numberOfNewDefenders; i++) {
+          // Only spawn if we haven't exceeded total defender limits
+          if (newState.activeDefenderCount < newState.maxDefenders + 3) { // Allow slight overflow for this feature
+            const speedVariation = 1 + (newState.difficultyLevel * 0.3) + Math.random() * 0.5;
+            const spawnX = Math.random() * (canvasWidth - 40) + 20;
+            const spawnY = -50 - (i * 30); // Stagger spawn positions vertically
+            
+            const newDefender = getDefenderFromPool(spawnX, spawnY, 1.2 * speedVariation);
+            if (newDefender) {
+              newState.defenders.push(newDefender);
+              newState.activeDefenderCount++;
+            }
+          }
+        }
+      }
+      
       // Improved AI despawning - remove defenders far off screen to prevent memory issues
       const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 150 && d.y > -150);
       
