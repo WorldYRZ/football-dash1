@@ -33,6 +33,7 @@ const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const touchStartRef = useRef<TouchPos | null>(null);
+  const mouseDownRef = useRef<boolean>(false);
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const { submitScore } = useGame();
@@ -118,8 +119,8 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Draw field with yard lines
-  const drawField = (ctx: CanvasRenderingContext2D, offset: number) => {
+  // Draw field with improved yard lines and side markers
+  const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
     gradient.addColorStop(0, 'hsl(120, 45%, 25%)');
@@ -137,25 +138,54 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Yard lines (every 10 yards = 60px)
+    // Yard lines with proper synchronization
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
+    
+    // Calculate yards per pixel for proper synchronization
+    const yardsPerPixel = 1; // 1 yard per pixel movement
+    const pixelsPerYardLine = 60; // Every 60 pixels = 10 yards
+    
     for (let i = 0; i < 15; i++) {
-      const y = (i * 60 + offset) % (canvasHeight + 60);
-      if (y > -10) {
+      const y = (i * pixelsPerYardLine + (offset % pixelsPerYardLine)) % (canvasHeight + pixelsPerYardLine);
+      
+      if (y > -10 && y < canvasHeight + 10) {
+        // Calculate the actual yard number for this line
+        const yardLineNumber = Math.floor((currentYards + (canvasHeight - y) / 6)) 
+        const roundedYard = Math.floor(yardLineNumber / 10) * 10;
+        
+        // Draw yard line
         ctx.beginPath();
         ctx.moveTo(20, y);
         ctx.lineTo(canvasWidth - 20, y);
         ctx.stroke();
 
-        // Yard numbers
-        if (i % 1 === 0) {
-          ctx.fillStyle = 'hsl(0, 0%, 85%)';
-          ctx.font = 'bold 14px Arial';
+        // Draw yard numbers on both sides every 10 yards
+        if (roundedYard % 10 === 0 && roundedYard > 0) {
+          ctx.fillStyle = 'hsl(0, 0%, 95%)';
+          ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
-          const yardNumber = ((gameState.score + (canvasHeight - y) / 6) / 10) | 0;
-          if (yardNumber % 10 === 0 && yardNumber > 0) {
-            ctx.fillText(yardNumber.toString(), canvasWidth / 2, y - 5);
+          
+          // Left side yard marker
+          ctx.save();
+          ctx.translate(35, y);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(roundedYard.toString(), 0, 0);
+          ctx.restore();
+          
+          // Right side yard marker
+          ctx.save();
+          ctx.translate(canvasWidth - 35, y);
+          ctx.rotate(Math.PI / 2);
+          ctx.fillText(roundedYard.toString(), 0, 0);
+          ctx.restore();
+          
+          // Center field marker for major yard lines
+          if (roundedYard % 50 === 0) {
+            ctx.fillStyle = 'hsl(0, 0%, 85%)';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(roundedYard.toString(), canvasWidth / 2, y - 5);
           }
         }
       }
@@ -302,8 +332,8 @@ const GameCanvas: React.FC = () => {
       // Update field scroll (consistent downward movement)
       newState.fieldOffset += newState.gameSpeed;
       
-      // Update score (1 point per frame ≈ yards)
-      newState.score += Math.floor(newState.gameSpeed);
+      // Update score with proper yard calculation (6 pixels = 1 yard)
+      newState.score += Math.floor(newState.gameSpeed / 6);
       
       // Stamina depletion (affected by speed)
       const staminaDrain = 0.08 + (newState.gameSpeed - 2) * 0.02;
@@ -425,8 +455,8 @@ const GameCanvas: React.FC = () => {
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     
-    // Draw game elements
-    drawField(ctx, gameState.fieldOffset);
+    // Draw game elements with synchronized yards
+    drawField(ctx, gameState.fieldOffset, gameState.score);
     drawCollectibles(ctx, gameState.collectibles);
     drawDefenders(ctx, gameState.defenders);
     drawPlayer(ctx, gameState.player);
@@ -452,7 +482,42 @@ const GameCanvas: React.FC = () => {
     animationRef.current = requestAnimationFrame(gameLoop);
   }, [gameState, updateGame]);
 
-  // Improved touch handlers for responsive controls
+  // Mouse and touch handlers for cross-platform support
+  const getInputPosition = (e: React.MouseEvent | React.TouchEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+
+    let clientX: number, clientY: number;
+    
+    if ('touches' in e) {
+      // Touch event
+      if (e.touches.length === 0) return null;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      // Mouse event
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = (clientX - rect.left) * (canvasWidth / rect.width);
+    const y = (clientY - rect.top) * (canvasHeight / rect.height);
+    
+    return { x, y };
+  };
+
+  const updatePlayerPosition = (x: number, y: number) => {
+    setGameState(prevState => ({
+      ...prevState,
+      player: {
+        ...prevState.player,
+        x: Math.max(35, Math.min(canvasWidth - 35, x)),
+        y: Math.max(25, Math.min(canvasHeight - 25, y))
+      }
+    }));
+  };
+
+  // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     if (gameState.isGameOver) {
@@ -464,51 +529,65 @@ const GameCanvas: React.FC = () => {
       setGameState(prev => ({ ...prev, isPlaying: true }));
     }
     
-    const touch = e.touches[0];
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const pos = getInputPosition(e);
+    if (!pos) return;
     
-    const x = (touch.clientX - rect.left) * (canvasWidth / rect.width);
-    const y = (touch.clientY - rect.top) * (canvasHeight / rect.height);
-    
-    touchStartRef.current = { x, y };
-    
-    // Immediate player position update for responsiveness
-    setGameState(prevState => ({
-      ...prevState,
-      player: {
-        ...prevState.player,
-        x: Math.max(25, Math.min(canvasWidth - 25, x)),
-        y: Math.max(25, Math.min(canvasHeight - 25, y))
-      }
-    }));
+    touchStartRef.current = pos;
+    updatePlayerPosition(pos.x, pos.y);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     e.preventDefault();
     if (gameState.isGameOver || !gameState.isPlaying) return;
     
-    const touch = e.touches[0];
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const pos = getInputPosition(e);
+    if (!pos) return;
     
-    const x = (touch.clientX - rect.left) * (canvasWidth / rect.width);
-    const y = (touch.clientY - rect.top) * (canvasHeight / rect.height);
-    
-    // Immediate position update with smooth constraints
-    setGameState(prevState => ({
-      ...prevState,
-      player: {
-        ...prevState.player,
-        x: Math.max(25, Math.min(canvasWidth - 25, x)),
-        y: Math.max(25, Math.min(canvasHeight - 25, y))
-      }
-    }));
+    updatePlayerPosition(pos.x, pos.y);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault();
     touchStartRef.current = null;
+  };
+
+  // Mouse handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (gameState.isGameOver) {
+      setGameOverModalOpen(true);
+      return;
+    }
+    
+    if (!gameState.isPlaying) {
+      setGameState(prev => ({ ...prev, isPlaying: true }));
+    }
+    
+    const pos = getInputPosition(e);
+    if (!pos) return;
+    
+    mouseDownRef.current = true;
+    updatePlayerPosition(pos.x, pos.y);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (gameState.isGameOver || !gameState.isPlaying || !mouseDownRef.current) return;
+    
+    const pos = getInputPosition(e);
+    if (!pos) return;
+    
+    updatePlayerPosition(pos.x, pos.y);
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    e.preventDefault();
+    mouseDownRef.current = false;
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    e.preventDefault();
+    mouseDownRef.current = false;
   };
 
   // Initialize pools and game on mount
@@ -589,16 +668,20 @@ const GameCanvas: React.FC = () => {
               ref={canvasRef}
               width={canvasWidth}
               height={canvasHeight}
-              className="border-2 border-field-lines rounded-lg shadow-lg touch-none bg-field-green"
+              className="border-2 border-field-lines rounded-lg shadow-lg touch-none bg-field-green cursor-pointer"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
             />
           </div>
           
           <div className="mt-4 text-center">
             <p className="text-foreground/70 text-sm">
-              Drag to move • Collect ⚡ for stamina • Avoid defenders
+              Drag or click to move • Collect ⚡ for stamina • Avoid defenders
             </p>
             <p className="text-foreground/50 text-xs mt-1">
               +10 coins every 1000 yards
