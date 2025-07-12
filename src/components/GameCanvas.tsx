@@ -6,7 +6,7 @@ import GameOverModal from './GameOverModal';
 
 interface GameState {
   player: { x: number; y: number; stamina: number; speed: number };
-  defenders: Array<{ x: number; y: number; speed: number; id: number }>;
+  defenders: Array<{ x: number; y: number; speed: number; stamina: number; id: number }>;
   collectibles: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number }>;
   score: number;
   coins: number;
@@ -26,7 +26,7 @@ interface TouchPos {
 }
 
 // Object pools for performance
-const defenderPool: Array<{ x: number; y: number; speed: number; id: number; active: boolean }> = [];
+const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; active: boolean }> = [];
 const collectiblePool: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; active: boolean }> = [];
 
 const GameCanvas: React.FC = () => {
@@ -63,7 +63,7 @@ const GameCanvas: React.FC = () => {
     // Initialize defender pool
     for (let i = 0; i < 10; i++) {
       defenderPool.push({
-        x: 0, y: 0, speed: 0, id: i, active: false
+        x: 0, y: 0, speed: 0, stamina: 100, id: i, active: false
       });
     }
     
@@ -82,6 +82,7 @@ const GameCanvas: React.FC = () => {
       defender.x = x;
       defender.y = y;
       defender.speed = speed;
+      defender.stamina = 60 + Math.random() * 40; // Random stamina 60-100
       defender.active = true;
       return { ...defender };
     }
@@ -220,7 +221,7 @@ const GameCanvas: React.FC = () => {
   };
 
   // Draw defenders with improved AI visuals
-  const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; id: number }>) => {
+  const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; id: number }>) => {
     defenders.forEach(defender => {
       const size = 18;
       
@@ -339,8 +340,8 @@ const GameCanvas: React.FC = () => {
       const staminaDrain = 0.08 + (newState.gameSpeed - 2) * 0.02;
       newState.player.stamina = Math.max(0, newState.player.stamina - staminaDrain);
       
-      // Player speed affected by stamina
-      newState.player.speed = Math.max(0.3, newState.player.stamina / 100);
+      // Player speed affected by stamina - 15% slower when stamina is zero
+      newState.player.speed = newState.player.stamina <= 0 ? 0.85 : Math.max(0.85, newState.player.stamina / 100);
       
       // Progressive difficulty
       if (newState.score > 0 && newState.score % 1000 === 0 && newState.score > newState.lastMilestone) {
@@ -348,16 +349,28 @@ const GameCanvas: React.FC = () => {
         newState.lastMilestone = newState.score;
       }
       
-      // Enhanced AI: Defenders chase player only when in front, stop when behind
+      // Enhanced AI: Defenders chase player only when in front, lose stamina when behind
       newState.defenders = newState.defenders.map(defender => {
         const dx = newState.player.x - defender.x;
         const dy = newState.player.y - defender.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Only chase if defender is ahead of or level with player (defender.y <= player.y)
-        if (defender.y <= newState.player.y && distance > 5) {
-          const chaseSpeed = defender.speed * (1 + newState.score / 5000); // Increase with score
-          const accelerationFactor = Math.min(2, distance / 100); // Faster when far away
+        // Check if defender is behind player
+        const isBehindPlayer = defender.y > newState.player.y;
+        
+        // Drain stamina if behind player
+        if (isBehindPlayer) {
+          defender.stamina = Math.max(0, defender.stamina - 0.5);
+        }
+        
+        // Calculate effective speed based on stamina
+        const staminaFactor = defender.stamina <= 0 ? 0.75 : 1; // 25% slower when out of stamina
+        const effectiveSpeed = defender.speed * staminaFactor;
+        
+        // Only chase if defender is ahead of or level with player
+        if (!isBehindPlayer && distance > 5) {
+          const chaseSpeed = effectiveSpeed * (1 + newState.score / 5000);
+          const accelerationFactor = Math.min(2, distance / 100);
           
           defender.x += (dx / distance) * chaseSpeed * accelerationFactor;
           defender.y += (dy / distance) * chaseSpeed * accelerationFactor;
