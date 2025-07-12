@@ -475,14 +475,13 @@ const GameCanvas: React.FC = () => {
       const speedDiff = newState.targetGameSpeed - newState.gameSpeed;
       newState.gameSpeed += speedDiff * 0.1; // Gradual speed change
       
-      // INDEPENDENT continuous field scrolling - never stops regardless of player movement
+      // AUTOMATIC continuous field scrolling - always moves at constant speed
+      // Speed increases over time for difficulty progression (like Subway Surfers)
       newState.fieldOffset += newState.gameSpeed * (deltaTime / 16.67);
       
-      // Yard calculation based on field scrolling + player's screen position
-      // Field scrolling is completely independent of player movement
-      const playerVerticalOffset = (canvasHeight - 100) - newState.player.y; // Player's deviation from center
-      const totalProgress = newState.fieldOffset + playerVerticalOffset;
-      newState.score = Math.floor(totalProgress / 12); // 12 pixels = 1 yard
+      // Yard calculation based purely on automatic field scrolling
+      // Player's progress is based on time and automatic field movement
+      newState.score = Math.floor(newState.fieldOffset / 12); // 12 pixels = 1 yard
       
       // Hide achievement after 3 seconds
       if (newState.showAchievement && Date.now() - (newState.currentAchievement?.timestamp || 0) > 3000) {
@@ -490,16 +489,19 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // Player movement with defined boundaries - field scrolling remains independent
+      // ENDLESS RUNNER PLAYER MOVEMENT: Horizontal only with smooth interpolation
       const playerLerpSpeed = 0.25;
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
-      newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
       
-      // Player movement boundaries (field continues scrolling regardless)
-      const horizontalRange = canvasWidth - 70; // Stay within sidelines
+      // Keep player at fixed vertical position (endless runner style)
+      const fixedPlayerY = canvasHeight - 100; // Fixed vertical position
+      newState.player.y = fixedPlayerY;
+      newState.player.targetY = fixedPlayerY;
       
-      // Enforce horizontal boundaries only - allow free vertical movement
+      // Horizontal boundaries only - player stays within sidelines
+      const horizontalRange = canvasWidth - 70;
       newState.player.x = Math.max(35, Math.min(horizontalRange, newState.player.x));
+      newState.player.targetX = Math.max(35, Math.min(horizontalRange, newState.player.targetX));
       
       // Performance-optimized stamina system
       const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
@@ -792,13 +794,15 @@ const GameCanvas: React.FC = () => {
     return { x, y };
   };
 
+  // ENDLESS RUNNER: Player only controls horizontal movement
   const updatePlayerPosition = (x: number, y: number) => {
     setGameState(prevState => ({
       ...prevState,
       player: {
         ...prevState.player,
         targetX: Math.max(35, Math.min(canvasWidth - 35, x)),
-        targetY: Math.max(25, Math.min(canvasHeight - 25, y))
+        // Vertical position is fixed in endless runner mode
+        targetY: canvasHeight - 100 // Fixed at ground level
       }
     }));
   };
