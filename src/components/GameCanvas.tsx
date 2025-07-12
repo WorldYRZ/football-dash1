@@ -818,15 +818,19 @@ const GameCanvas: React.FC = () => {
         Math.pow(currentPlayerY - previousPlayerY, 2)
       );
       
-      // Calculate movement speed (pixels per frame, normalized)
-      const movementSpeed = movementDistance / (deltaTime / 16.67);
+      // Calculate movement speed (pixels per frame, normalized) with reasonable bounds
+      const movementSpeed = Math.min(movementDistance / (deltaTime / 16.67), 100); // Cap max speed to prevent extreme drain
       const movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 10)); // More sensitive to movement speed
       
       let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67) * movementSpeedMultiplier * 0.3; // 70% slower drain
       
+      // Cap stamina drain to prevent instant depletion (max 5% per frame)
+      staminaDrain = Math.min(staminaDrain, 5);
+      
       // 2x faster stamina drain while jumping
       if (newState.player.isJumping) {
         staminaDrain *= 2;
+        staminaDrain = Math.min(staminaDrain, 10); // Cap jump drain too
       }
       
       newState.player.stamina = Math.max(0, newState.player.stamina - staminaDrain);
