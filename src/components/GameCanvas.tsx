@@ -120,7 +120,7 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Draw field with scrolling yard lines and moving sideline numbers
+  // Draw field with perfectly synchronized yard lines and sideline numbers
   const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -139,53 +139,62 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Yard lines with doubled spacing and moving sideline numbers
+    // Yard lines and numbers with perfect synchronization
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
     
-    const pixelsPerYardLine = 120; // 120 pixels = 10 yards (doubled spacing)
+    const pixelsPerYard = 12; // 12 pixels = 1 yard (consistent throughout game)
+    const yardsPerLine = 10; // Every 10 yards gets a line
+    const pixelsPerYardLine = pixelsPerYard * yardsPerLine; // 120 pixels per yard line
     
-    for (let i = 0; i < 10; i++) {
-      const y = (i * pixelsPerYardLine + (offset % pixelsPerYardLine)) % (canvasHeight + pixelsPerYardLine);
+    // Player's fixed position on screen
+    const playerScreenY = canvasHeight - 100;
+    
+    // Calculate yard lines based on current progress
+    const startYard = Math.floor((currentYards - 50) / yardsPerLine) * yardsPerLine; // Start from 50 yards before current
+    const endYard = startYard + 100; // Show 100 yards worth of lines
+    
+    for (let yard = startYard; yard <= endYard; yard += yardsPerLine) {
+      if (yard < 0) continue; // Don't show negative yards
       
-      if (y > -50 && y < canvasHeight + 50) {
-        // Calculate the yard number for this line based on player progress
-        const lineDistanceFromPlayer = (canvasHeight - 100) - y; // Distance from player position
-        const yardAtThisLine = Math.round(currentYards + (lineDistanceFromPlayer / 12)); // 12 pixels = 1 yard
-        const roundedYard = Math.floor(yardAtThisLine / 10) * 10;
-        
-        // Draw moving yard line
+      // Calculate screen position for this yard line
+      const yardDifference = yard - currentYards;
+      const screenY = playerScreenY - (yardDifference * pixelsPerYard);
+      
+      // Only draw if visible on screen
+      if (screenY >= -50 && screenY <= canvasHeight + 50) {
+        // Draw yard line
         ctx.beginPath();
-        ctx.moveTo(20, y);
-        ctx.lineTo(canvasWidth - 20, y);
+        ctx.moveTo(20, screenY);
+        ctx.lineTo(canvasWidth - 20, screenY);
         ctx.stroke();
-
-        // Draw moving sideline numbers every 10 yards
-        if (roundedYard % 10 === 0 && roundedYard >= 0) {
+        
+        // Draw sideline numbers (perfectly aligned with field position)
+        if (yard >= 0) {
           ctx.fillStyle = 'hsl(0, 0%, 95%)';
           ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
           
-          // Left side yard marker (moves with field)
+          // Left side yard marker
           ctx.save();
-          ctx.translate(35, y);
+          ctx.translate(35, screenY);
           ctx.rotate(-Math.PI / 2);
-          ctx.fillText(roundedYard.toString(), 0, 0);
+          ctx.fillText(yard.toString(), 0, 0);
           ctx.restore();
           
-          // Right side yard marker (moves with field)
+          // Right side yard marker
           ctx.save();
-          ctx.translate(canvasWidth - 35, y);
+          ctx.translate(canvasWidth - 35, screenY);
           ctx.rotate(Math.PI / 2);
-          ctx.fillText(roundedYard.toString(), 0, 0);
+          ctx.fillText(yard.toString(), 0, 0);
           ctx.restore();
           
-          // Center field marker for major yard lines
-          if (roundedYard % 50 === 0 && roundedYard > 0) {
+          // Center field marker for major yard lines (50, 100, etc.)
+          if (yard % 50 === 0 && yard > 0) {
             ctx.fillStyle = 'hsl(0, 0%, 85%)';
             ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(roundedYard.toString(), canvasWidth / 2, y - 5);
+            ctx.fillText(yard.toString(), canvasWidth / 2, screenY - 5);
             ctx.fillStyle = 'hsl(0, 0%, 95%)';
             ctx.font = 'bold 16px Arial';
           }
@@ -331,11 +340,11 @@ const GameCanvas: React.FC = () => {
     setGameState(prevState => {
       const newState = { ...prevState };
       
-      // Update field scroll (consistent downward movement)
+      // Update field scroll and score in perfect sync
       newState.fieldOffset += newState.gameSpeed;
       
-      // Update score with proper yard calculation (12 pixels = 1 yard to match field)
-      newState.score += Math.floor(newState.gameSpeed / 12);
+      // Score increases in direct proportion to field movement (12 pixels = 1 yard)
+      newState.score = Math.floor(newState.fieldOffset / 12);
       
       // Stamina depletion (affected by speed)
       const staminaDrain = 0.08 + (newState.gameSpeed - 2) * 0.02;
