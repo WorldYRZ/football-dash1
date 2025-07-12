@@ -495,14 +495,11 @@ const GameCanvas: React.FC = () => {
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
       newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
       
-      // Strict player movement boundaries (field continues scrolling regardless)
-      const centerY = canvasHeight - 100; // Default center position
-      const verticalRange = 80; // 80 pixels up/down from center
+      // Player movement boundaries (field continues scrolling regardless)
       const horizontalRange = canvasWidth - 70; // Stay within sidelines
       
-      // Enforce boundaries - player cannot move beyond these limits
+      // Enforce horizontal boundaries only - allow free vertical movement
       newState.player.x = Math.max(35, Math.min(horizontalRange, newState.player.x));
-      newState.player.y = Math.max(centerY - verticalRange, Math.min(centerY + verticalRange, newState.player.y));
       
       // Performance-optimized stamina system
       const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
