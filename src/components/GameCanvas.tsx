@@ -821,8 +821,14 @@ const GameCanvas: React.FC = () => {
       newState.player.targetX = Math.max(35, Math.min(horizontalRange, newState.player.targetX));
       newState.player.targetY = Math.max(25, Math.min(verticalRange, newState.player.targetY));
       
-      // Performance-optimized stamina system
-      const staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
+      // Performance-optimized stamina system with jumping mechanics
+      let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
+      
+      // 2x faster stamina drain while jumping
+      if (newState.player.isJumping) {
+        staminaDrain *= 2;
+      }
+      
       newState.player.stamina = Math.max(0, newState.player.stamina - staminaDrain);
       
       // Player speed affected by stamina
@@ -1213,6 +1219,11 @@ const GameCanvas: React.FC = () => {
   const handleJump = () => {
     const currentTime = Date.now();
     setGameState(prevState => {
+      // Check if stamina is below 5% - can't jump
+      if (prevState.player.stamina < 5) {
+        return prevState;
+      }
+      
       // Check cooldown (1.5 seconds for balanced gameplay)
       if (currentTime < prevState.player.jumpCooldownEnd) {
         return prevState; // Still on cooldown
@@ -1223,10 +1234,14 @@ const GameCanvas: React.FC = () => {
         return prevState;
       }
       
+      // Deduct 10% stamina on jump
+      const newStamina = Math.max(0, prevState.player.stamina - 10);
+      
       return {
         ...prevState,
         player: {
           ...prevState.player,
+          stamina: newStamina,
           isJumping: true,
           jumpStartTime: currentTime,
           jumpCooldownEnd: currentTime + 1500 // 1.5 second cooldown
