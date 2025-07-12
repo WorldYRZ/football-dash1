@@ -822,7 +822,7 @@ const GameCanvas: React.FC = () => {
       const movementSpeed = movementDistance / (deltaTime / 16.67);
       const movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 50)); // Faster movement = more stamina drain
       
-      let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67) * movementSpeedMultiplier;
+      let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67) * movementSpeedMultiplier * 0.3; // 70% slower drain
       
       // 2x faster stamina drain while jumping
       if (newState.player.isJumping) {
