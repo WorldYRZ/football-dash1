@@ -820,7 +820,7 @@ const GameCanvas: React.FC = () => {
       
       // Calculate movement speed (pixels per frame, normalized) with reasonable bounds
       const movementSpeed = Math.min(movementDistance / (deltaTime / 16.67), 100); // Cap max speed to prevent extreme drain
-      const movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 10)); // More sensitive to movement speed
+      const movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 2)); // High sensitivity to movement speed
       
       let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67) * movementSpeedMultiplier * 0.3; // 70% slower drain
       
