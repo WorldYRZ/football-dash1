@@ -894,6 +894,27 @@ const GameCanvas: React.FC = () => {
           defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1) * (deltaTime / 16.67);
         }
         
+        
+        // TRACK WHEN PLAYER PASSES DEFENDER - spawn reinforcements
+        const wasInFront = defender.y < newState.player.y;
+        const nowBehind = defender.y > newState.player.y + 20; // Buffer to prevent rapid triggering
+        
+        if (wasInFront && nowBehind && Math.random() < 0.8) { // 80% chance to spawn when passed
+          const numberOfNewDefenders = Math.floor(Math.random() * 6) + 1; // Spawn 1-6 defenders
+          
+          for (let i = 0; i < numberOfNewDefenders; i++) {
+            const speedVariation = 1 + (newState.difficultyLevel * 0.3) + Math.random() * 0.5;
+            const spawnX = Math.random() * (canvasWidth - 40) + 20;
+            const spawnY = -30 - (i * 25); // Stagger spawn positions
+            
+            const newDefender = getDefenderFromPool(spawnX, spawnY, 1.2 * speedVariation);
+            if (newDefender) {
+              newState.defenders.push(newDefender);
+              newState.activeDefenderCount++;
+            }
+          }
+        }
+
         return defender;
       });
       
