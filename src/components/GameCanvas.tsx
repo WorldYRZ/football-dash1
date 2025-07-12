@@ -175,7 +175,7 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Sidelines
+    // FIXED SIDELINES - These stay in place (endless runner style)
     ctx.strokeStyle = 'hsl(0, 0%, 95%)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -185,8 +185,7 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(canvasWidth - 20, canvasHeight);
     ctx.stroke();
 
-    // Continuous independent scrolling yard lines
-    // Field scrolling is NOT affected by player movement - always moves downward
+    // SCROLLING YARD LINES - Only the field content moves
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
     ctx.lineWidth = 2;
     
@@ -194,7 +193,7 @@ const GameCanvas: React.FC = () => {
     const yardsPerLine = 10; // Yard line every 10 yards
     const pixelsPerYardLine = pixelsPerYard * yardsPerLine; // 120 pixels per yard line
     
-    // Player's stable position on screen
+    // Player's fixed position on screen (endless runner style)
     const playerScreenY = canvasHeight - 100;
     
     // Calculate yard lines to display based on current progress
@@ -210,26 +209,26 @@ const GameCanvas: React.FC = () => {
       
       // Only draw if visible on screen (with buffer for smooth transitions)
       if (screenY >= -60 && screenY <= canvasHeight + 60) {
-        // Draw moving yard line
+        // Draw scrolling yard line (between the FIXED sidelines)
         ctx.beginPath();
         ctx.moveTo(20, screenY);
         ctx.lineTo(canvasWidth - 20, screenY);
         ctx.stroke();
         
-        // Draw synchronized yard markers
+        // Draw synchronized yard markers (these scroll with the field)
         if (yard >= 0) {
           ctx.fillStyle = 'hsl(0, 0%, 95%)';
           ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
           
-          // Left side yard marker (moves with field)
+          // Left side yard marker (scrolls with field content)
           ctx.save();
           ctx.translate(35, screenY);
           ctx.rotate(-Math.PI / 2);
           ctx.fillText(yard.toString(), 0, 0);
           ctx.restore();
           
-          // Right side yard marker (moves with field)
+          // Right side yard marker (scrolls with field content)
           ctx.save();
           ctx.translate(canvasWidth - 35, screenY);
           ctx.rotate(Math.PI / 2);
