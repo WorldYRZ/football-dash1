@@ -984,7 +984,8 @@ const GameCanvas: React.FC = () => {
               defender.y += (adjustedDy / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
             }
         } else if (defender.isDown) {
-          // DEFENDER IS DOWN - Only move with field, no AI movement
+          // FALLEN DEFENDER - Only moves with field scrolling, no AI behavior
+          // Scrolls off screen naturally with the background
           defender.y += newState.gameSpeed * (deltaTime / 16.67);
         }
           
@@ -994,11 +995,11 @@ const GameCanvas: React.FC = () => {
         }
         
         
-        // TRACK WHEN PLAYER GETS IN FRONT OF DEFENDER - spawn reinforcements
+        // SPAWN REINFORCEMENTS - only when active player gets ahead of active defender
         const wasBehind = defender.y < newState.player.y; // Defender was ahead of player
         const playerNowAhead = defender.y > newState.player.y + 20; // Player now ahead with buffer
         
-        if (wasBehind && playerNowAhead && Math.random() < 0.8) { // 80% chance to spawn when player gets ahead
+        if (!defender.isDown && wasBehind && playerNowAhead && Math.random() < 0.8) { // Don't spawn for fallen defenders
           const numberOfNewDefenders = Math.floor(Math.random() * 6) + 1; // Spawn 1-6 defenders
           
           for (let i = 0; i < numberOfNewDefenders; i++) {
@@ -1009,7 +1010,6 @@ const GameCanvas: React.FC = () => {
             const newDefender = getDefenderFromPool(spawnX, spawnY, 1.2 * speedVariation);
             if (newDefender) {
               newState.defenders.push(newDefender);
-              newState.activeDefenderCount++;
             }
           }
         }
@@ -1070,32 +1070,37 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Only despawn defenders that reach the bottom of the canvas
-      const activeDefenders = newState.defenders.filter(d => d.y < canvasHeight + 50);
-      
-      // Return defenders that went off bottom to pool for memory efficiency
-      newState.defenders.filter(d => d.y >= canvasHeight + 50)
-        .forEach(d => returnDefenderToPool(d.id));
+      // PERFORMANCE CLEANUP - Remove fallen defenders that scrolled off bottom
+      const activeDefenders = newState.defenders.filter(d => {
+        // Keep all defenders that haven't scrolled off the bottom
+        if (d.y < canvasHeight + 100) return true;
+        
+        // Return fallen defenders to pool when they scroll off
+        if (d.isDown) {
+          returnDefenderToPool(d.id);
+          return false;
+        }
+        
+        // Keep other defenders even if off bottom (they might come back)
+        return true;
+      });
       
       newState.defenders = activeDefenders;
-      newState.activeDefenderCount = newState.defenders.length;
+      newState.activeDefenderCount = newState.defenders.filter(d => !d.isDown).length; // Only count active defenders
       
-      // Spawn defenders based on difficulty level and time
-      const shouldSpawn = newState.activeDefenderCount < newState.maxDefenders && 
-                         Math.random() < (0.02 + newState.difficultyLevel * 0.005);
-      
-      if (shouldSpawn) {
-        const speedVariation = 1 + (newState.difficultyLevel * 0.3) + Math.random() * 0.5;
-        const newDefender = getDefenderFromPool(
-          Math.random() * (canvasWidth - 40) + 20,
-          -30,
-          1.2 * speedVariation
-        );
-        if (newDefender) {
-          newState.defenders.push(newDefender);
-          newState.activeDefenderCount++;
+        // Spawn only if we have room and need more active defenders
+        const activeDefenderCount = newState.defenders.filter(d => !d.isDown).length;
+        if (activeDefenderCount < newState.maxDefenders && Math.random() < (0.02 + newState.difficultyLevel * 0.005)) {
+          const speedVariation = 1 + (newState.difficultyLevel * 0.3) + Math.random() * 0.5;
+          const newDefender = getDefenderFromPool(
+            Math.random() * (canvasWidth - 40) + 20,
+            -30,
+            1.2 * speedVariation
+          );
+          if (newDefender) {
+            newState.defenders.push(newDefender);
+          }
         }
-      }
       
       // Independent collectible movement - moves with field scrolling only
       newState.collectibles = newState.collectibles.map(item => ({
@@ -1134,10 +1139,10 @@ const GameCanvas: React.FC = () => {
         return true;
       });
       
-      // IMPROVED COLLISION DETECTION - Check for successful dive tackles
+      // COLLISION DETECTION - Only check active (non-fallen) diving defenders
       if (!newState.player.isJumping) {
-        const divingDefenders = newState.defenders.filter(d => d.isDiving);
-        const successfulDive = divingDefenders.some(defender => {
+        const activeDivingDefenders = newState.defenders.filter(d => d.isDiving && !d.isDown);
+        const successfulDive = activeDivingDefenders.some(defender => {
           const dx = defender.x - newState.player.x;
           const dy = defender.y - newState.player.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
