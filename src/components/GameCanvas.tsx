@@ -960,6 +960,7 @@ const GameCanvas: React.FC = () => {
               defender.x += (adjustedDx / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
               defender.y += (adjustedDy / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
             }
+          }
           
           // Independent field movement - defenders move with field regardless of player
           // Field scrolling is completely separate from player movement
@@ -988,10 +989,7 @@ const GameCanvas: React.FC = () => {
         }
 
         return defender;
-      });
-      
-      // Filter out null defenders
-      newState.defenders = newState.defenders.filter(defender => defender !== null);
+      }).filter(defender => defender !== null);
       
       // Add collision detection between defenders to prevent overlapping
       for (let i = 0; i < newState.defenders.length; i++) {
