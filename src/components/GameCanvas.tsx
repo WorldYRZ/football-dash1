@@ -913,7 +913,7 @@ const GameCanvas: React.FC = () => {
           
           // Calculate effective speed with adaptive factors
           let staminaFactor = defender.stamina <= 0 ? 0.75 : 1;
-          let behindFactor = isBehindPlayer ? 0.5 : 1;
+          let behindFactor = isBehindPlayer ? 0.05 : 1; // 5% speed when behind player
           let effectiveSpeed = defender.speed * staminaFactor * behindFactor * aiSpeed;
           
           // Apply adaptive movement patterns based on learned player behavior
