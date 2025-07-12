@@ -55,8 +55,8 @@ const GameCanvas: React.FC = () => {
     collectibles: [],
     score: 0,
     coins: 0,
-    gameSpeed: 1.5, // Start slower for easier entry
-    baseGameSpeed: 1.5,
+    gameSpeed: 1.2, // Start even slower for better initial experience
+    baseGameSpeed: 1.2,
     fieldOffset: 0,
     isGameOver: false,
     isPaused: false,
@@ -128,8 +128,8 @@ const GameCanvas: React.FC = () => {
       collectibles: [],
       score: 0,
       coins: 0,
-      gameSpeed: 1.5, // Start slower
-      baseGameSpeed: 1.5,
+      gameSpeed: 1.2, // Start slower
+      baseGameSpeed: 1.2,
       fieldOffset: 0,
       isGameOver: false,
       isPaused: false,
@@ -488,10 +488,14 @@ const GameCanvas: React.FC = () => {
       // Player speed affected by stamina
       newState.player.speed = newState.player.stamina <= 0 ? 0.85 : Math.max(0.85, newState.player.stamina / 100);
       
-      // Milestone achievements (every 100 yards)
+      // Milestone achievements AND yard-based difficulty progression
       const currentHundreds = Math.floor(newState.score / 100);
       if (currentHundreds > Math.floor(newState.lastMilestone / 100)) {
         newState.lastMilestone = newState.score;
+        
+        // Yard-based difficulty boost (additional to time-based)
+        const yardDifficultyBonus = Math.min(0.8, currentHundreds * 0.05); // Cap bonus
+        newState.gameSpeed = (newState.baseGameSpeed * speedMultiplier) + yardDifficultyBonus;
         
         const achievementMessage = `${currentHundreds * 100} Yards!`;
         const achievement = {
@@ -508,7 +512,7 @@ const GameCanvas: React.FC = () => {
         
         toast({
           title: "Milestone Achievement!",
-          description: `${achievementMessage} - +10 coins earned!`,
+          description: `${achievementMessage} - Speed increased!`,
           duration: 3000,
         });
       }
@@ -587,8 +591,13 @@ const GameCanvas: React.FC = () => {
         return defender;
       });
       
-      // Remove off-screen defenders
-      const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 100 && d.y > -100);
+      // Improved AI despawning - remove defenders far off screen to prevent memory issues
+      const visibleDefenders = newState.defenders.filter(d => d.y < canvasHeight + 150 && d.y > -150);
+      
+      // Return unused defenders to pool for memory efficiency
+      newState.defenders.filter(d => d.y >= canvasHeight + 150 || d.y <= -150)
+        .forEach(d => returnDefenderToPool(d.id));
+      
       newState.defenders = visibleDefenders;
       newState.activeDefenderCount = newState.defenders.length;
       
