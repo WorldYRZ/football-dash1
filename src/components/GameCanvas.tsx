@@ -988,9 +988,10 @@ const GameCanvas: React.FC = () => {
         }
 
         return defender;
-      }).filter(defender => defender !== null);
+      });
       
-      // Update the defenders array with filtered results
+      // Filter out null defenders
+      newState.defenders = newState.defenders.filter(defender => defender !== null);
       
       // Add collision detection between defenders to prevent overlapping
       for (let i = 0; i < newState.defenders.length; i++) {
