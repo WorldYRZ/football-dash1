@@ -349,7 +349,7 @@ const GameCanvas: React.FC = () => {
         newState.lastMilestone = newState.score;
       }
       
-      // Enhanced AI: Defenders chase player only when in front, lose stamina when behind
+      // Enhanced AI: Defenders always chase but get slower when behind player
       newState.defenders = newState.defenders.map(defender => {
         const dx = newState.player.x - defender.x;
         const dy = newState.player.y - defender.y;
@@ -358,26 +358,29 @@ const GameCanvas: React.FC = () => {
         // Check if defender is behind player
         const isBehindPlayer = defender.y > newState.player.y;
         
-        // Drain stamina if behind player
+        // Drain stamina faster if behind player
         if (isBehindPlayer) {
-          defender.stamina = Math.max(0, defender.stamina - 0.5);
+          defender.stamina = Math.max(0, defender.stamina - 0.8); // Faster stamina drain when behind
+        } else {
+          defender.stamina = Math.max(0, defender.stamina - 0.1); // Slow drain when ahead
         }
         
-        // Calculate effective speed based on stamina
-        const staminaFactor = defender.stamina <= 0 ? 0.75 : 1; // 25% slower when out of stamina
-        const effectiveSpeed = defender.speed * staminaFactor;
+        // Calculate effective speed - slower when behind and based on stamina
+        let staminaFactor = defender.stamina <= 0 ? 0.75 : 1; // 25% slower when out of stamina
+        let behindFactor = isBehindPlayer ? 0.6 : 1; // 40% slower when behind player
+        const effectiveSpeed = defender.speed * staminaFactor * behindFactor;
         
-        // Only chase if defender is ahead of or level with player
-        if (!isBehindPlayer && distance > 5) {
+        // Always chase player but with reduced effectiveness when behind
+        if (distance > 5) {
           const chaseSpeed = effectiveSpeed * (1 + newState.score / 5000);
           const accelerationFactor = Math.min(2, distance / 100);
           
           defender.x += (dx / distance) * chaseSpeed * accelerationFactor;
           defender.y += (dy / distance) * chaseSpeed * accelerationFactor;
-        } else {
-          // If behind player, just move down with field speed
-          defender.y += newState.gameSpeed;
         }
+        
+        // Add downward field movement to gradually push behind defenders off screen
+        defender.y += newState.gameSpeed * (isBehindPlayer ? 1.5 : 1); // Faster field movement when behind
         
         return defender;
       });
