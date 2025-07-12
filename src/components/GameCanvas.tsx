@@ -936,11 +936,11 @@ const GameCanvas: React.FC = () => {
         }
         
         
-        // TRACK WHEN PLAYER PASSES DEFENDER - spawn reinforcements
-        const wasInFront = defender.y < newState.player.y;
-        const nowBehind = defender.y > newState.player.y + 20; // Buffer to prevent rapid triggering
+        // TRACK WHEN PLAYER GETS IN FRONT OF DEFENDER - spawn reinforcements
+        const wasBehind = defender.y < newState.player.y; // Defender was ahead of player
+        const playerNowAhead = defender.y > newState.player.y + 20; // Player now ahead with buffer
         
-        if (wasInFront && nowBehind && Math.random() < 0.8) { // 80% chance to spawn when passed
+        if (wasBehind && playerNowAhead && Math.random() < 0.8) { // 80% chance to spawn when player gets ahead
           const numberOfNewDefenders = Math.floor(Math.random() * 6) + 1; // Spawn 1-6 defenders
           
           for (let i = 0; i < numberOfNewDefenders; i++) {
