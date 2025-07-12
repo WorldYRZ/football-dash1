@@ -805,8 +805,24 @@ const GameCanvas: React.FC = () => {
       newState.player.targetX = Math.max(35, Math.min(horizontalRange, newState.player.targetX));
       newState.player.targetY = Math.max(25, Math.min(verticalRange, newState.player.targetY));
       
-      // Performance-optimized stamina system with jumping mechanics
-      let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67);
+      // Performance-optimized stamina system with movement speed and jumping mechanics
+      
+      // Calculate player movement speed for stamina drain
+      const currentPlayerX = newState.player.x;
+      const currentPlayerY = newState.player.y;
+      const previousPlayerX = prevState.player.x;
+      const previousPlayerY = prevState.player.y;
+      
+      const movementDistance = Math.sqrt(
+        Math.pow(currentPlayerX - previousPlayerX, 2) + 
+        Math.pow(currentPlayerY - previousPlayerY, 2)
+      );
+      
+      // Calculate movement speed (pixels per frame, normalized)
+      const movementSpeed = movementDistance / (deltaTime / 16.67);
+      const movementSpeedMultiplier = Math.max(1, 1 + (movementSpeed / 50)); // Faster movement = more stamina drain
+      
+      let staminaDrain = (0.06 + (elapsedSeconds / 1000) * 0.02) * (deltaTime / 16.67) * movementSpeedMultiplier;
       
       // 2x faster stamina drain while jumping
       if (newState.player.isJumping) {
