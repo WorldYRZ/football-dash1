@@ -249,54 +249,191 @@ const GameCanvas: React.FC = () => {
     }
   };
 
-  // Draw player with improved visuals
+  // Draw player with top-down football player sprite and running animation
   const drawPlayer = (ctx: CanvasRenderingContext2D, player: { x: number; y: number; stamina: number; speed: number }) => {
-    const size = 20;
+    const time = Date.now() / 100; // Animation timer
+    const runCycle = Math.sin(time) * 0.3; // Running animation cycle
     
-    // Speed effect - trail when moving fast
-    if (player.speed > 0.8) {
-      ctx.shadowColor = 'hsl(220, 85%, 55%)';
-      ctx.shadowBlur = 20;
-    } else {
-      ctx.shadowBlur = 10;
+    // Player team colors (blue team)
+    const helmetColor = 'hsl(220, 85%, 55%)'; // Blue helmet
+    const jerseyColor = 'hsl(220, 70%, 45%)'; // Blue jersey
+    const pantsColor = 'hsl(220, 50%, 35%)'; // Darker blue pants
+    const skinColor = 'hsl(30, 50%, 70%)'; // Skin tone
+    
+    // Stamina affects player appearance
+    const staminaFactor = player.stamina / 100;
+    const glowIntensity = staminaFactor > 0.5 ? 15 : staminaFactor > 0.25 ? 8 : 0;
+    
+    // Player glow effect based on stamina
+    if (glowIntensity > 0) {
+      ctx.shadowColor = helmetColor;
+      ctx.shadowBlur = glowIntensity;
     }
     
-    // Player body (affected by stamina)
-    const staminaFactor = player.stamina / 100;
-    const playerColor = staminaFactor > 0.5 ? 'hsl(220, 85%, 55%)' : 
-                       staminaFactor > 0.25 ? 'hsl(30, 85%, 55%)' : 'hsl(0, 85%, 55%)';
+    // BODY (jersey) - oval shaped from top-down
+    ctx.fillStyle = jerseyColor;
+    ctx.beginPath();
+    ctx.ellipse(player.x, player.y, 12, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
     
-    ctx.fillStyle = playerColor;
-    ctx.fillRect(player.x - size/2, player.y - size/2, size, size);
+    // ARMS - animated running motion
+    const armOffset = runCycle * 8;
+    ctx.fillStyle = skinColor;
+    ctx.strokeStyle = jerseyColor;
+    ctx.lineWidth = 2;
     
-    // Player helmet shine
-    ctx.fillStyle = staminaFactor > 0.5 ? 'hsl(220, 85%, 70%)' : 'hsl(0, 0%, 70%)';
-    ctx.fillRect(player.x - size/2 + 2, player.y - size/2 + 2, size/3, size/3);
+    // Left arm
+    ctx.beginPath();
+    ctx.ellipse(player.x - 10, player.y + armOffset, 3, 8, Math.PI * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Right arm  
+    ctx.beginPath();
+    ctx.ellipse(player.x + 10, player.y - armOffset, 3, 8, -Math.PI * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    // LEGS - animated running motion
+    ctx.fillStyle = pantsColor;
+    const legOffset = runCycle * 6;
+    
+    // Left leg
+    ctx.beginPath();
+    ctx.ellipse(player.x - 6, player.y + 8 + legOffset, 4, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right leg
+    ctx.beginPath();
+    ctx.ellipse(player.x + 6, player.y + 8 - legOffset, 4, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // HELMET - team colored with face mask
+    ctx.fillStyle = staminaFactor > 0.5 ? helmetColor : staminaFactor > 0.25 ? 'hsl(30, 85%, 55%)' : 'hsl(0, 85%, 55%)';
+    ctx.beginPath();
+    ctx.ellipse(player.x, player.y - 8, 10, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Helmet shine/highlight
+    ctx.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(player.x - 3, player.y - 10, 4, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Face mask
+    ctx.strokeStyle = 'hsl(0, 0%, 80%)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(player.x - 4, player.y - 4);
+    ctx.lineTo(player.x + 4, player.y - 4);
+    ctx.moveTo(player.x, player.y - 8);
+    ctx.lineTo(player.x, player.y - 2);
+    ctx.stroke();
+    
+    // SHOULDER PADS
+    ctx.fillStyle = jerseyColor;
+    ctx.beginPath();
+    ctx.ellipse(player.x - 8, player.y - 4, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(player.x + 8, player.y - 4, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
     
     ctx.shadowBlur = 0;
   };
 
-  // Draw defenders with improved AI visuals
+  // Draw defenders with top-down football player sprites and running animation
   const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; pattern: string; id: number }>) => {
     defenders.forEach(defender => {
-      const size = 18;
+      const time = Date.now() / 120; // Slightly different animation speed for defenders
+      const runCycle = Math.sin(time + defender.id) * 0.3; // Individual animation cycles
       
-      // Defender shadow with intensity based on speed
-      ctx.shadowColor = 'hsl(15, 80%, 45%)';
-      ctx.shadowBlur = Math.min(15, defender.speed * 3);
+      // Defender team colors (red team)
+      const helmetColor = 'hsl(15, 80%, 45%)'; // Red helmet
+      const jerseyColor = 'hsl(15, 70%, 40%)'; // Red jersey
+      const pantsColor = 'hsl(15, 50%, 30%)'; // Darker red pants
+      const skinColor = 'hsl(30, 50%, 70%)'; // Skin tone
       
-      // Defender body
-      ctx.fillStyle = 'hsl(15, 80%, 45%)';
-      ctx.fillRect(defender.x - size/2, defender.y - size/2, size, size);
+      // Speed-based intensity effects
+      const speedIntensity = Math.min(15, defender.speed * 3);
+      ctx.shadowColor = helmetColor;
+      ctx.shadowBlur = speedIntensity;
       
-      // Defender helmet
-      ctx.fillStyle = 'hsl(15, 80%, 60%)';
-      ctx.fillRect(defender.x - size/2 + 1, defender.y - size/2 + 1, size/4, size/4);
+      // BODY (jersey) - oval shaped from top-down
+      ctx.fillStyle = jerseyColor;
+      ctx.beginPath();
+      ctx.ellipse(defender.x, defender.y, 11, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
       
-      // Speed indicator (small trail effect)
+      // ARMS - animated running motion
+      const armOffset = runCycle * 7;
+      ctx.fillStyle = skinColor;
+      ctx.strokeStyle = jerseyColor;
+      ctx.lineWidth = 2;
+      
+      // Left arm
+      ctx.beginPath();
+      ctx.ellipse(defender.x - 9, defender.y + armOffset, 3, 7, Math.PI * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Right arm  
+      ctx.beginPath();
+      ctx.ellipse(defender.x + 9, defender.y - armOffset, 3, 7, -Math.PI * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // LEGS - animated running motion
+      ctx.fillStyle = pantsColor;
+      const legOffset = runCycle * 5;
+      
+      // Left leg
+      ctx.beginPath();
+      ctx.ellipse(defender.x - 5, defender.y + 7 + legOffset, 3, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Right leg
+      ctx.beginPath();
+      ctx.ellipse(defender.x + 5, defender.y + 7 - legOffset, 3, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // HELMET - red team colored with face mask
+      ctx.fillStyle = helmetColor;
+      ctx.beginPath();
+      ctx.ellipse(defender.x, defender.y - 7, 9, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Helmet shine/highlight
+      ctx.fillStyle = 'hsla(0, 0%, 100%, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(defender.x - 3, defender.y - 9, 3, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Face mask
+      ctx.strokeStyle = 'hsl(0, 0%, 80%)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(defender.x - 3, defender.y - 4);
+      ctx.lineTo(defender.x + 3, defender.y - 4);
+      ctx.moveTo(defender.x, defender.y - 7);
+      ctx.lineTo(defender.x, defender.y - 2);
+      ctx.stroke();
+      
+      // SHOULDER PADS
+      ctx.fillStyle = jerseyColor;
+      ctx.beginPath();
+      ctx.ellipse(defender.x - 7, defender.y - 3, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(defender.x + 7, defender.y - 3, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Speed trail effect for fast defenders
       if (defender.speed > 2) {
-        ctx.fillStyle = 'hsla(15, 80%, 45%, 0.3)';
-        ctx.fillRect(defender.x - size/2, defender.y + size/2, size, 5);
+        ctx.fillStyle = `hsla(15, 80%, 45%, 0.3)`;
+        ctx.beginPath();
+        ctx.ellipse(defender.x, defender.y + 12, 8, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
       
       ctx.shadowBlur = 0;
