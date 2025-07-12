@@ -493,8 +493,8 @@ const GameCanvas: React.FC = () => {
       newState.player.x += (newState.player.targetX - newState.player.x) * playerLerpSpeed;
       newState.player.y += (newState.player.targetY - newState.player.y) * playerLerpSpeed;
       
-      // Movement boundaries - player can move freely within the field
-      const horizontalRange = canvasWidth - 70;
+      // Movement boundaries - player can move freely within the field to the sidelines
+      const horizontalRange = canvasWidth - 35; // Allow movement closer to right sideline
       const verticalRange = canvasHeight - 50;
       
       // Enforce boundaries for both horizontal and vertical movement
