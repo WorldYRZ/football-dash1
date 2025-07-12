@@ -217,7 +217,7 @@ const GameCanvas: React.FC = () => {
     collectiblePool.forEach(c => c.active = false);
   }, []);
 
-  // Independent continuous field scrolling with synchronized yard markers and sidelines
+  // Field scrolling with FIXED sidelines and SCROLLING horizontal lines
   const drawField = (ctx: CanvasRenderingContext2D, offset: number, currentYards: number) => {
     // Field background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -226,33 +226,15 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // SCROLLING SIDELINES - Move with field like collectibles
+    // FIXED SIDELINES - Stay in place covering whole canvas
     ctx.strokeStyle = 'hsl(0, 0%, 95%)';
     ctx.lineWidth = 3;
-    
-    // Calculate sideline segments that need to be drawn
-    const sidelineSegmentHeight = 100; // Height of each sideline segment
-    const startSegment = Math.floor(-offset / sidelineSegmentHeight) - 1;
-    const endSegment = startSegment + Math.ceil(canvasHeight / sidelineSegmentHeight) + 3;
-    
-    // Draw scrolling sideline segments
-    for (let i = startSegment; i <= endSegment; i++) {
-      const segmentY = (i * sidelineSegmentHeight) + (offset % sidelineSegmentHeight);
-      
-      if (segmentY > -sidelineSegmentHeight && segmentY < canvasHeight + sidelineSegmentHeight) {
-        // Left sideline segment
-        ctx.beginPath();
-        ctx.moveTo(20, segmentY);
-        ctx.lineTo(20, segmentY + sidelineSegmentHeight);
-        ctx.stroke();
-        
-        // Right sideline segment
-        ctx.beginPath();
-        ctx.moveTo(canvasWidth - 20, segmentY);
-        ctx.lineTo(canvasWidth - 20, segmentY + sidelineSegmentHeight);
-        ctx.stroke();
-      }
-    }
+    ctx.beginPath();
+    ctx.moveTo(20, 0);
+    ctx.lineTo(20, canvasHeight);
+    ctx.moveTo(canvasWidth - 20, 0);
+    ctx.lineTo(canvasWidth - 20, canvasHeight);
+    ctx.stroke();
 
     // SCROLLING YARD LINES - Only the field content moves
     ctx.strokeStyle = 'hsl(0, 0%, 90%)';
