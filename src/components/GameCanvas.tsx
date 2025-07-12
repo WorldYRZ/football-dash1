@@ -15,6 +15,10 @@ interface GameState {
     isJumping: boolean;
     jumpStartTime: number;
     jumpCooldownEnd: number;
+    isSpinning: boolean;
+    spinStartTime: number;
+    spinCooldownEnd: number;
+    lastTapTime: number;
   };
   defenders: Array<{ 
     x: number; 
@@ -86,7 +90,11 @@ const GameCanvas: React.FC = () => {
       targetY: 500,
       isJumping: false,
       jumpStartTime: 0,
-      jumpCooldownEnd: 0
+      jumpCooldownEnd: 0,
+      isSpinning: false,
+      spinStartTime: 0,
+      spinCooldownEnd: 0,
+      lastTapTime: 0
     },
     defenders: [],
     collectibles: [],
@@ -180,7 +188,11 @@ const GameCanvas: React.FC = () => {
         targetY: canvasHeight - 100,
         isJumping: false,
         jumpStartTime: 0,
-        jumpCooldownEnd: 0
+        jumpCooldownEnd: 0,
+        isSpinning: false,
+        spinStartTime: 0,
+        spinCooldownEnd: 0,
+        lastTapTime: 0
       },
       defenders: [],
       collectibles: [],
@@ -297,13 +309,18 @@ const GameCanvas: React.FC = () => {
     }
   };
 
-  // Draw player with top-down football player sprite, running animation, and jumping
-  const drawPlayer = (ctx: CanvasRenderingContext2D, player: { x: number; y: number; stamina: number; speed: number; isJumping: boolean; jumpStartTime: number }) => {
+  // Draw player with dodge animations (spin and jump)
+  const drawPlayer = (ctx: CanvasRenderingContext2D, player: { x: number; y: number; stamina: number; speed: number; isJumping: boolean; jumpStartTime: number; isSpinning: boolean; spinStartTime: number }) => {
     const time = Date.now() / 100; // Animation timer
     const runCycle = Math.sin(time) * 0.3; // Running animation cycle
     
-    // JUMP ANIMATION - Calculate jump height and animation state
+    // SPIN ANIMATION - Calculate spin rotation and visual effects
     const currentTime = Date.now();
+    const spinProgress = player.isSpinning ? Math.min(1, (currentTime - player.spinStartTime) / 500) : 0;
+    const spinRotation = player.isSpinning ? spinProgress * Math.PI * 2 : 0; // Full 360° rotation
+    const spinGlow = player.isSpinning ? 20 + Math.sin(spinProgress * Math.PI * 4) * 10 : 0; // Pulsing glow
+    
+    // JUMP ANIMATION - Calculate jump height and animation state
     const jumpProgress = player.isJumping ? Math.min(1, (currentTime - player.jumpStartTime) / 500) : 0;
     const jumpHeight = player.isJumping ? Math.sin(jumpProgress * Math.PI) * 15 : 0; // Arc motion
     const jumpScale = player.isJumping ? 1 + jumpHeight * 0.02 : 1; // Slight scale effect
@@ -319,13 +336,31 @@ const GameCanvas: React.FC = () => {
     const staminaFactor = player.stamina / 100;
     const glowIntensity = staminaFactor > 0.5 ? 15 : staminaFactor > 0.25 ? 8 : 0;
     
-    // JUMP INVULNERABILITY EFFECT
-    if (player.isJumping) {
+    // DODGE VISUAL EFFECTS
+    if (player.isSpinning) {
+      ctx.shadowColor = 'hsl(280, 100%, 70%)'; // Purple glow when spinning
+      ctx.shadowBlur = spinGlow;
+    } else if (player.isJumping) {
       ctx.shadowColor = 'hsl(60, 100%, 70%)'; // Golden glow when jumping
       ctx.shadowBlur = 20;
     } else if (glowIntensity > 0) {
       ctx.shadowColor = helmetColor;
       ctx.shadowBlur = glowIntensity;
+    }
+    
+    
+    // Apply jump position offset
+    const drawY = player.y - jumpHeight;
+    
+    // MOTION TRAILS for spin move
+    if (player.isSpinning) {
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = `hsla(280, 100%, 70%, ${0.3 - i * 0.1})`;
+        const trailOffset = i * 5;
+        ctx.beginPath();
+        ctx.ellipse(player.x - trailOffset, drawY, 8 - i, 10 - i, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     
     // Draw player shadow on ground (separated during jump)
@@ -336,12 +371,10 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
     }
     
-    // Apply jump position offset
-    const drawY = player.y - jumpHeight;
-    
-    // Save context for scaling
+    // Save context for transformations
     ctx.save();
     ctx.translate(player.x, drawY);
+    ctx.rotate(spinRotation); // Apply spin rotation
     ctx.scale(jumpScale, jumpScale);
     ctx.translate(-player.x, -drawY);
     
@@ -732,13 +765,21 @@ const GameCanvas: React.FC = () => {
         newState.currentAchievement = null;
       }
       
-      // JUMP MECHANICS - Handle player jumping state
+      // DODGE MECHANICS - Handle player spin and jump states
       
       // Update jump state
       if (newState.player.isJumping) {
         const jumpDuration = 500; // 0.5 seconds
         if (currentTime - newState.player.jumpStartTime > jumpDuration) {
           newState.player.isJumping = false;
+        }
+      }
+      
+      // Update spin state
+      if (newState.player.isSpinning) {
+        const spinDuration = 500; // 0.5 seconds
+        if (currentTime - newState.player.spinStartTime > spinDuration) {
+          newState.player.isSpinning = false;
         }
       }
       
@@ -1035,8 +1076,9 @@ const GameCanvas: React.FC = () => {
         return true;
       });
       
-      // COLLISION DETECTION WITH JUMP INVULNERABILITY
-      if (!newState.player.isJumping) { // Player is invulnerable while jumping
+      // COLLISION DETECTION WITH DODGE MECHANICS
+      // Player is invulnerable while jumping or spinning
+      if (!newState.player.isJumping && !newState.player.isSpinning) {
         const collision = newState.defenders.some(defender => {
           const dx = defender.x - newState.player.x;
           const dy = defender.y - newState.player.y;
@@ -1138,7 +1180,7 @@ const GameCanvas: React.FC = () => {
     }));
   };
 
-  // JUMP MECHANIC - Right-click or two-finger tap to jump
+  // JUMP MECHANIC - Double-tap or right-click to jump
   const handleJump = () => {
     const currentTime = Date.now();
     setGameState(prevState => {
@@ -1147,8 +1189,8 @@ const GameCanvas: React.FC = () => {
         return prevState; // Still on cooldown
       }
       
-      // Already jumping
-      if (prevState.player.isJumping) {
+      // Already jumping or spinning
+      if (prevState.player.isJumping || prevState.player.isSpinning) {
         return prevState;
       }
       
@@ -1164,7 +1206,33 @@ const GameCanvas: React.FC = () => {
     });
   };
 
-  // Touch handlers with two-finger tap jump
+  // SPIN MECHANIC - Left-click or single tap to spin
+  const handleSpin = () => {
+    const currentTime = Date.now();
+    setGameState(prevState => {
+      // Check cooldown (1.5 seconds)
+      if (currentTime < prevState.player.spinCooldownEnd) {
+        return prevState; // Still on cooldown
+      }
+      
+      // Already jumping or spinning
+      if (prevState.player.isJumping || prevState.player.isSpinning) {
+        return prevState;
+      }
+      
+      return {
+        ...prevState,
+        player: {
+          ...prevState.player,
+          isSpinning: true,
+          spinStartTime: currentTime,
+          spinCooldownEnd: currentTime + 1500 // 1.5 second cooldown
+        }
+      };
+    });
+  };
+
+  // Touch handlers with double-tap jump and single tap spin
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     if (gameState.isGameOver) {
@@ -1176,11 +1244,22 @@ const GameCanvas: React.FC = () => {
       setGameState(prev => ({ ...prev, isPlaying: true }));
     }
     
-    // TWO-FINGER TAP JUMP
-    if (e.touches.length >= 2) {
+    const currentTime = Date.now();
+    
+    // DOUBLE-TAP DETECTION FOR JUMP
+    if (currentTime - gameState.player.lastTapTime < 300) { // 300ms window for double tap
       handleJump();
+      setGameState(prev => ({ ...prev, player: { ...prev.player, lastTapTime: 0 } }));
       return;
     }
+    
+    // SINGLE TAP SPIN (with delay to check for double tap)
+    setGameState(prev => ({ ...prev, player: { ...prev.player, lastTapTime: currentTime } }));
+    setTimeout(() => {
+      if (Date.now() - currentTime > 300) { // If no second tap within 300ms
+        handleSpin();
+      }
+    }, 300);
     
     const pos = getInputPosition(e);
     if (!pos) return;
@@ -1203,7 +1282,7 @@ const GameCanvas: React.FC = () => {
     touchStartRef.current = null;
   };
 
-  // Mouse handlers with right-click jump
+  // Mouse handlers with left-click spin and right-click jump
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     if (gameState.isGameOver) {
@@ -1218,6 +1297,12 @@ const GameCanvas: React.FC = () => {
     // RIGHT-CLICK JUMP
     if (e.button === 2) { // Right mouse button
       handleJump();
+      return;
+    }
+    
+    // LEFT-CLICK SPIN
+    if (e.button === 0) { // Left mouse button
+      handleSpin();
       return;
     }
     
@@ -1345,7 +1430,7 @@ const GameCanvas: React.FC = () => {
           
           <div className="mt-4 text-center">
             <p className="text-foreground/70 text-sm">
-              Drag to move • Right-click or two-finger tap to JUMP • Collect ⚡ for stamina
+              Left-click/Tap to SPIN • Double-tap/Right-click to JUMP • Dodge diving defenders with perfect timing!
             </p>
             <p className="text-foreground/50 text-xs mt-1">
               +10 coins every 1000 yards
