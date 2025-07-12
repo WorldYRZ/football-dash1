@@ -31,6 +31,8 @@ interface GameState {
     diveStartTime: number;
     diveTargetX: number;
     diveTargetY: number;
+    hasDived: boolean;
+    isDown: boolean;
   }>;
   collectibles: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; targetX: number; targetY: number }>;
   score: number;
@@ -64,7 +66,7 @@ interface TouchPos {
 }
 
 // Object pools for performance
-const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number; isDiving: boolean; diveStartTime: number; diveTargetX: number; diveTargetY: number; active: boolean }> = [];
+const defenderPool: Array<{ x: number; y: number; speed: number; stamina: number; id: number; pattern: string; patternTimer: number; targetX: number; targetY: number; isDiving: boolean; diveStartTime: number; diveTargetX: number; diveTargetY: number; hasDived: boolean; isDown: boolean; active: boolean }> = [];
 const collectiblePool: Array<{ x: number; y: number; type: 'lightning' | 'coin'; id: number; active: boolean }> = [];
 
 const GameCanvas: React.FC = () => {
@@ -126,7 +128,8 @@ const GameCanvas: React.FC = () => {
     for (let i = 0; i < 15; i++) {
       defenderPool.push({
         x: 0, y: 0, speed: 0, stamina: 100, id: i, pattern: 'straight', patternTimer: 0, 
-        targetX: 0, targetY: 0, isDiving: false, diveStartTime: 0, diveTargetX: 0, diveTargetY: 0, active: false
+        targetX: 0, targetY: 0, isDiving: false, diveStartTime: 0, diveTargetX: 0, diveTargetY: 0, 
+        hasDived: false, isDown: false, active: false
       });
     }
     
@@ -154,6 +157,8 @@ const GameCanvas: React.FC = () => {
       defender.diveStartTime = 0;
       defender.diveTargetX = 0;
       defender.diveTargetY = 0;
+      defender.hasDived = false;
+      defender.isDown = false;
       defender.active = true;
       return { ...defender };
     }
@@ -441,8 +446,8 @@ const GameCanvas: React.FC = () => {
     ctx.shadowBlur = 0;
   };
 
-  // Draw defenders with enhanced forward dive animations
-  const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; pattern: string; id: number; isDiving: boolean; diveStartTime: number }>) => {
+  // Draw defenders with realistic dive and fall states
+  const drawDefenders = (ctx: CanvasRenderingContext2D, defenders: Array<{ x: number; y: number; speed: number; stamina: number; pattern: string; id: number; isDiving: boolean; diveStartTime: number; isDown: boolean }>) => {
     defenders.forEach(defender => {
       const time = Date.now() / 120; // Slightly different animation speed for defenders
       const runCycle = Math.sin(time + defender.id) * 0.3; // Individual animation cycles
@@ -460,9 +465,15 @@ const GameCanvas: React.FC = () => {
       const pantsColor = 'hsl(15, 50%, 30%)'; // Darker red pants
       const skinColor = 'hsl(30, 50%, 70%)'; // Skin tone
       
-      // Forward dive visual effects + speed effects
+      // Speed-based visual effects
       const speedIntensity = Math.min(15, defender.speed * 3);
-      if (defender.isDiving) {
+      
+      // FALLEN DEFENDER VISUAL EFFECTS
+      if (defender.isDown) {
+        ctx.shadowColor = 'hsl(0, 0%, 40%)'; // Gray shadow for fallen defenders
+        ctx.shadowBlur = 5;
+        ctx.globalAlpha = 0.6; // Fade fallen defenders
+      } else if (defender.isDiving) {
         ctx.shadowColor = 'hsl(0, 85%, 60%)'; // Intense red glow when diving
         ctx.shadowBlur = 30 + diveProgress * 20; // Increasing intensity during dive
       } else {
@@ -470,11 +481,22 @@ const GameCanvas: React.FC = () => {
         ctx.shadowBlur = speedIntensity;
       }
       
-      // Apply dive position offset and scaling
+      // Apply dive/fall position offset and scaling
       const drawY = defender.y - diveHeight;
       
-      // FORWARD DIVE MOTION TRAILS
-      if (defender.isDiving) {
+      // DUST/IMPACT EFFECT for fallen defenders
+      if (defender.isDown) {
+        for (let i = 0; i < 3; i++) {
+          ctx.fillStyle = `hsla(30, 50%, 60%, ${0.3 - i * 0.1})`;
+          const dustOffset = i * 6;
+          ctx.beginPath();
+          ctx.ellipse(defender.x + dustOffset - 6, drawY + 15, 4 - i, 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      
+      // FORWARD DIVE MOTION TRAILS (only when actively diving)
+      if (defender.isDiving && !defender.isDown) {
         for (let i = 0; i < 5; i++) {
           ctx.fillStyle = `hsla(0, 85%, 60%, ${0.5 - i * 0.1})`;
           const trailOffset = i * 12; // Longer trails for forward motion
@@ -484,11 +506,16 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Save context for dive transformation
+      // Save context for transformation
       ctx.save();
       ctx.translate(defender.x, drawY);
-      ctx.rotate(diveLean); // Forward lean during dive
-      ctx.scale(diveStretch, defender.isDiving ? 0.7 : 1); // Flatten and stretch during forward dive
+      if (defender.isDown) {
+        ctx.rotate(Math.PI / 2); // Rotate 90 degrees for fallen defender
+        ctx.scale(0.8, 0.6); // Flatten fallen defender
+      } else {
+        ctx.rotate(diveLean); // Forward lean during dive
+        ctx.scale(diveStretch, defender.isDiving ? 0.7 : 1); // Flatten and stretch during forward dive
+      }
       ctx.translate(-defender.x, -drawY);
       
       // BODY (jersey) - oval shaped from top-down
@@ -586,8 +613,9 @@ const GameCanvas: React.FC = () => {
         }
       }
       
-      // Restore context
+      // Restore context and reset alpha
       ctx.restore();
+      ctx.globalAlpha = 1.0; // Reset alpha for next defender
       ctx.shadowBlur = 0;
     });
   };
@@ -867,40 +895,42 @@ const GameCanvas: React.FC = () => {
         // Check if defender is behind player
         const isBehindPlayer = defender.y > newState.player.y;
         
-        // FORWARD DIVE MECHANICS - Check if defender should dive
-        if (!defender.isDiving && distance < 50 && Math.random() < 0.08) { // 8% chance to dive when close
+        // ONE-TIME DIVE LOGIC - Each defender can only dive once
+        if (!defender.isDiving && !defender.hasDived && !defender.isDown && distance < 50 && Math.random() < 0.08) {
           defender.isDiving = true;
+          defender.hasDived = true; // Mark as having attempted dive
           defender.diveStartTime = currentTime;
           // Target position AHEAD of player for forward lunge
           defender.diveTargetX = newState.player.x;
           defender.diveTargetY = newState.player.y - 40; // Dive forward past player position
         }
         
-        // Update dive state with forward momentum
+        // Update dive state with smooth forward momentum
         if (defender.isDiving) {
           const diveProgress = Math.min(1, (currentTime - defender.diveStartTime) / 600); // 0.6 second dive
           
           if (diveProgress >= 1) {
-            defender.isDiving = false; // End dive
-            // Brief recovery pause after missing dive
-            defender.stamina = Math.max(0, defender.stamina - 30); // Stamina penalty for missing
+            // DIVE COMPLETE - Defender falls and stays down
+            defender.isDiving = false;
+            defender.isDown = true; // Defender is now on the ground permanently
           } else {
-            // AGGRESSIVE FORWARD DIVE MOTION
+            // SMOOTH FORWARD DIVE MOTION
             const diveSpeed = 6; // Fast forward dive speed
             const targetDx = defender.diveTargetX - defender.x;
             const targetDy = defender.diveTargetY - defender.y;
             const targetDistance = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
             
-            if (targetDistance > 5) {
-              // Move toward dive target with forward momentum
-              defender.x += (targetDx / targetDistance) * diveSpeed * (deltaTime / 16.67);
-              defender.y += (targetDy / targetDistance) * diveSpeed * (deltaTime / 16.67);
+            if (targetDistance > 2) {
+              // Smooth interpolated movement toward dive target
+              const lerpFactor = 0.15; // Smooth movement
+              defender.x += targetDx * lerpFactor * (deltaTime / 16.67);
+              defender.y += targetDy * lerpFactor * (deltaTime / 16.67);
             }
             
             // Additional forward field momentum during dive
-            defender.y += newState.gameSpeed * 1.5 * (deltaTime / 16.67);
+            defender.y += newState.gameSpeed * 1.2 * (deltaTime / 16.67);
           }
-        } else {
+        } else if (!defender.isDown) {
           // Normal AI movement when not diving
           // Performance-optimized stamina drain
           if (isBehindPlayer) {
@@ -953,7 +983,10 @@ const GameCanvas: React.FC = () => {
               defender.x += (adjustedDx / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
               defender.y += (adjustedDy / adjustedDistance) * chaseSpeed * accelerationFactor * aiAccuracy;
             }
-          }
+        } else if (defender.isDown) {
+          // DEFENDER IS DOWN - Only move with field, no AI movement
+          defender.y += newState.gameSpeed * (deltaTime / 16.67);
+        }
           
           // Independent field movement - defenders move with field regardless of player
           // Field scrolling is completely separate from player movement
@@ -1101,20 +1134,20 @@ const GameCanvas: React.FC = () => {
         return true;
       });
       
-      // COLLISION DETECTION WITH JUMP INVULNERABILITY
-      // Player is invulnerable while jumping
+      // IMPROVED COLLISION DETECTION - Check for successful dive tackles
       if (!newState.player.isJumping) {
-        const collision = newState.defenders.some(defender => {
+        const divingDefenders = newState.defenders.filter(d => d.isDiving);
+        const successfulDive = divingDefenders.some(defender => {
           const dx = defender.x - newState.player.x;
           const dy = defender.y - newState.player.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          // Diving defenders have extended collision range
-          const collisionDistance = defender.isDiving ? 25 : 20;
-          return distance < collisionDistance;
+          // Successful dive collision range
+          return distance < 22;
         });
         
-        if (collision) {
+        if (successfulDive) {
+          // SUCCESSFUL DIVE ENDS GAME IMMEDIATELY
           newState.isGameOver = true;
           newState.isPlaying = false;
           setTimeout(() => setGameOverModalOpen(true), 100);
